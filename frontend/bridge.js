@@ -3,9 +3,17 @@
   const eventLog = [];
   const MAX_LOG_SIZE = 200;
   let eventCounter = 0;
+  let streamCounter = 0;
   const DEFAULTS = {
     signalingAdminUrl: '',
-    voiceDiagnosticsUrl: 'http://127.0.0.1:7000/bridge/events'
+    voiceDiagnosticsUrl: 'http://127.0.0.1:7000/bridge'
+  };
+  const bridgeStream = {
+    source: null,
+    url: '',
+    connected: false,
+    lastError: '',
+    reconnects: 0
   };
 
   function readBootstrapConfig() {
@@ -76,16 +84,97 @@
     return event;
   }
 
+  function closeEventStream() {
+    if (bridgeStream.source && typeof bridgeStream.source.close === 'function') {
+      bridgeStream.source.close();
+    }
+    bridgeStream.source = null;
+    bridgeStream.connected = false;
+    return getStreamState();
+  }
+
+  function getStreamState() {
+    return {
+      url: bridgeStream.url,
+      connected: bridgeStream.connected,
+      lastError: bridgeStream.lastError,
+      reconnects: bridgeStream.reconnects
+    };
+  }
+
+  function dispatchBridgeEnvelope(envelope) {
+    if (!envelope || typeof envelope.name !== 'string' || !envelope.name) {
+      emit('bridge:stream-error', { error: 'invalid-envelope', envelope: envelope });
+      return;
+    }
+    emit(envelope.name, envelope.payload || {});
+  }
+
+  function connectEventStream(url) {
+    if (!url) {
+      bridgeStream.lastError = 'No bridge URL configured';
+      emit('bridge:stream-error', { error: bridgeStream.lastError });
+      return getStreamState();
+    }
+    if (typeof global.EventSource !== 'function') {
+      bridgeStream.lastError = 'EventSource is unavailable in this environment';
+      emit('bridge:stream-error', { error: bridgeStream.lastError, url: url });
+      return getStreamState();
+    }
+
+    if (bridgeStream.source) {
+      closeEventStream();
+      bridgeStream.reconnects++;
+    }
+
+    bridgeStream.url = url;
+    bridgeStream.lastError = '';
+    bridgeStream.connected = false;
+    streamCounter++;
+
+    try {
+      bridgeStream.source = new global.EventSource(url);
+    } catch (err) {
+      bridgeStream.lastError = 'EventSource creation failed: ' + err.message;
+      emit('bridge:stream-error', { error: bridgeStream.lastError, url: url });
+      return getStreamState();
+    }
+
+    bridgeStream.source.onopen = function () {
+      bridgeStream.connected = true;
+      bridgeStream.lastError = '';
+      emit('bridge:stream-open', { url: url, connection: streamCounter });
+    };
+
+    bridgeStream.source.onmessage = function (event) {
+      try {
+        dispatchBridgeEnvelope(JSON.parse(event.data));
+      } catch (err) {
+        bridgeStream.lastError = 'Invalid SSE payload: ' + err.message;
+        emit('bridge:stream-error', { error: bridgeStream.lastError, url: url, raw: event.data });
+      }
+    };
+
+    bridgeStream.source.onerror = function () {
+      bridgeStream.connected = false;
+      bridgeStream.lastError = 'EventSource stream error';
+      emit('bridge:stream-error', { error: bridgeStream.lastError, url: url, reconnects: bridgeStream.reconnects });
+    };
+
+    return getStreamState();
+  }
+
   function getEventLog() {
     return eventLog.slice();
   }
 
   function getStats() {
-    return {
+      return {
       hooksRegistered: hooks.size,
       eventsEmitted: eventCounter,
       logSize: eventLog.length,
-      hookNames: Array.from(hooks.keys())
+      hookNames: Array.from(hooks.keys()),
+      stream: getStreamState()
     };
   }
 
@@ -97,6 +186,9 @@
       init() {
         registerHook('sample:bridge-ready', (event) => {
           this.lastEvent = JSON.stringify(event, null, 2);
+        });
+        registerHook('bridge:stream-open', () => {
+          this.bridgeStats = getStats();
         });
         registerHook('voice:state-changed', (event) => {
           if (event.payload && event.payload.transport) {
@@ -226,6 +318,9 @@
     emit,
     registerHook,
     removeHook,
+    connectEventStream,
+    disconnectEventStream: closeEventStream,
+    getStreamState,
     roomShell,
     getBootstrapConfig: readBootstrapConfig,
     persistBootstrapConfig,

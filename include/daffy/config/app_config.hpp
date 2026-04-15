@@ -54,7 +54,7 @@ struct ServicesConfig {
 struct FrontendBridgeConfig {
   bool enabled{true};
   std::string asset_root{"./frontend"};
-  std::string bridge_endpoint{"/bridge/events"};
+  std::string bridge_endpoint{"/bridge"};
   bool allow_wasm_extensions{true};
   std::string voice_transport{"native-client-only"};
 };

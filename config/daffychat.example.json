@@ -41,7 +41,7 @@
   "frontend_bridge": {
     "enabled": true,
     "asset_root": "./frontend",
-    "bridge_endpoint": "/bridge/events",
+    "bridge_endpoint": "/bridge",
     "allow_wasm_extensions": true,
     "voice_transport": "native-client-only"
   },

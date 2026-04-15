@@ -9,9 +9,9 @@ struct DfcBinding {
 };
 
 inline constexpr DfcBinding dfc_bindings[] = {
-    {"dfc", "bridge.emit",     "(i32,i32)->void"},
-    {"dfc", "bridge.on_hook",  "(i32,i32)->void"},
-    {"dfc", "bridge.off_hook", "(i32)->void"},
+    {"dfc", "bridge.sse_emit",      "(i32,i32)->void"},
+    {"dfc", "bridge.sse_subscribe", "(i32,i32)->void"},
+    {"dfc", "bridge.off_hook",      "(i32)->void"},
     {"dfc", "types.Color.new", "(i32,i32,i32)->i32"},
     {"dfc", "types.Color.to_hex", "(i32)->i32"},
 };

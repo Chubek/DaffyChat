@@ -42,7 +42,7 @@ rpc GetRoomStatus(room_id: string) returns VoiceRoomStatus;
 rest GET "/api/voice/room" (room_id: string) returns VoiceRoomStatus;
 rest GET "/api/voice/peer" (room_id: string, peer_id: string) returns VoicePeerStatus;
 
-exec bridge_probe "curl -sf http://127.0.0.1:7000/bridge/events";
+exec bridge_probe "curl -sf http://127.0.0.1:7000/bridge";
 
 meta {
     author: "DaffyChat stdext";

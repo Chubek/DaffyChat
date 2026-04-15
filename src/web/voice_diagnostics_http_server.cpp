@@ -1,10 +1,13 @@
 #include "daffy/web/voice_diagnostics_http_server.hpp"
 
 #include <atomic>
+#include <cerrno>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <vector>
 
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -21,6 +24,12 @@ struct HttpResponse {
   int status_code{200};
   std::string reason{"OK"};
   std::string body{"{}"};
+};
+
+struct ParsedRequest {
+  std::string method;
+  std::string target;
+  bool ok{false};
 };
 
 core::Result<int> CreateListenSocket(const config::AppConfig& config, int* bound_port) {
@@ -105,6 +114,26 @@ HttpResponse JsonResponse(const int status_code, std::string reason, const util:
   return HttpResponse{status_code, std::move(reason), util::json::Serialize(body) + '\n'};
 }
 
+ParsedRequest ParseRequest(const std::string& request) {
+  const auto line_end = request.find("\r\n");
+  if (line_end == std::string::npos) {
+    return {};
+  }
+
+  const std::string_view request_line(request.data(), line_end);
+  const auto first_space = request_line.find(' ');
+  const auto second_space = request_line.find(' ', first_space == std::string_view::npos ? 0 : first_space + 1);
+  if (first_space == std::string_view::npos || second_space == std::string_view::npos) {
+    return {};
+  }
+
+  ParsedRequest parsed;
+  parsed.method = std::string(request_line.substr(0, first_space));
+  parsed.target = std::string(request_line.substr(first_space + 1, second_space - first_space - 1));
+  parsed.ok = true;
+  return parsed;
+}
+
 void WriteResponse(const int fd, const HttpResponse& response) {
   std::string headers = "HTTP/1.1 " + std::to_string(response.status_code) + ' ' + response.reason + "\r\n";
   headers += "Content-Type: application/json\r\n";
@@ -128,22 +157,15 @@ struct VoiceDiagnosticsHttpServer::Impl {
   int listen_fd{-1};
   int bound_port{0};
   std::thread accept_thread;
+  std::vector<std::thread> stream_threads;
 
-  HttpResponse HandleRequest(const std::string& request) const {
-    const auto line_end = request.find("\r\n");
-    if (line_end == std::string::npos) {
+  HttpResponse HandleRequest(const ParsedRequest& parsed_request) const {
+    if (!parsed_request.ok) {
       return JsonResponse(400, "Bad Request", util::json::Value::Object{{"error", "malformed-request"}});
     }
 
-    const std::string_view request_line(request.data(), line_end);
-    const auto first_space = request_line.find(' ');
-    const auto second_space = request_line.find(' ', first_space == std::string_view::npos ? 0 : first_space + 1);
-    if (first_space == std::string_view::npos || second_space == std::string_view::npos) {
-      return JsonResponse(400, "Bad Request", util::json::Value::Object{{"error", "malformed-request"}});
-    }
-
-    const auto method = request_line.substr(0, first_space);
-    const auto target = request_line.substr(first_space + 1, second_space - first_space - 1);
+    const auto method = std::string_view(parsed_request.method);
+    const auto target = std::string_view(parsed_request.target);
     if (method != "GET") {
       return JsonResponse(405, "Method Not Allowed",
                           util::json::Value::Object{{"error", "method-not-allowed"}});
@@ -170,6 +192,47 @@ struct VoiceDiagnosticsHttpServer::Impl {
     return JsonResponse(404, "Not Found", util::json::Value::Object{{"error", "not-found"}});
   }
 
+  bool WriteSseEvent(const int fd, std::string_view name, const util::json::Value& payload) const {
+    util::json::Value::Object envelope{{"name", std::string(name)}, {"payload", payload}};
+    const auto body = util::json::Serialize(envelope);
+    std::string wire;
+    wire.reserve(body.size() + 16);
+    wire += "data: ";
+    wire += body;
+    wire += "\n\n";
+    return SendAll(fd, wire);
+  }
+
+  void StreamBridgeEvents(const int client_fd) {
+    std::string headers = "HTTP/1.1 200 OK\r\n";
+    headers += "Content-Type: text/event-stream\r\n";
+    headers += "Cache-Control: no-cache\r\n";
+    headers += "Connection: keep-alive\r\n";
+    headers += "Access-Control-Allow-Origin: *\r\n\r\n";
+    if (!SendAll(client_fd, headers)) {
+      close(client_fd);
+      return;
+    }
+
+    WriteSseEvent(client_fd,
+                  "bridge:ready",
+                  util::json::Value::Object{{"service", "daffy-backend-voice-diagnostics"},
+                                            {"url", config.frontend_bridge.bridge_endpoint},
+                                            {"voice_transport", config.frontend_bridge.voice_transport}});
+
+    while (running.load()) {
+      if (!WriteSseEvent(client_fd, "diagnostics:update", provider())) {
+        break;
+      }
+      if (!SendAll(client_fd, ": keep-alive\n\n")) {
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+
+    close(client_fd);
+  }
+
   void AcceptLoop() {
     while (running.load()) {
       pollfd descriptor {};
@@ -191,7 +254,13 @@ struct VoiceDiagnosticsHttpServer::Impl {
       }
 
       const auto request = ReadRequest(client_fd);
-      const auto response = HandleRequest(request);
+      const auto parsed_request = ParseRequest(request);
+      if (parsed_request.ok && parsed_request.method == "GET" && parsed_request.target == config.frontend_bridge.bridge_endpoint) {
+        stream_threads.emplace_back([this, client_fd]() { StreamBridgeEvents(client_fd); });
+        continue;
+      }
+
+      const auto response = HandleRequest(parsed_request);
       WriteResponse(client_fd, response);
       close(client_fd);
     }
@@ -233,6 +302,11 @@ void VoiceDiagnosticsHttpServer::Stop() {
   }
   if (impl_->accept_thread.joinable()) {
     impl_->accept_thread.join();
+  }
+  for (auto& stream_thread : impl_->stream_threads) {
+    if (stream_thread.joinable()) {
+      stream_thread.join();
+    }
   }
   impl_->logger.Info("Stopped voice diagnostics HTTP server");
 }

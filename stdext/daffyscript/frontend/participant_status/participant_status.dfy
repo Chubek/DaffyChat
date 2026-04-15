@@ -1,7 +1,7 @@
 module participant_status_overlay
 version 1.0.0
 
-import dfc.bridge
+import dfc_bridge_sse
 
 -- This module demonstrates a second frontend bridge plugin with a different job:
 -- it decorates participant rows with state that originates from signaling and native voice telemetry.

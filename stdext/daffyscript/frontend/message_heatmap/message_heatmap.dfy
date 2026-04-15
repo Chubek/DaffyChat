@@ -1,7 +1,7 @@
 module message_heatmap
 version 1.0.0
 
-import dfc.bridge
+import dfc_bridge_sse
 
 -- This module is a frontend-oriented bridge plugin.
 --

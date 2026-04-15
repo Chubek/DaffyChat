@@ -23,6 +23,16 @@ function createLocalStorage(seed) {
 
 function loadBridge(search, storageSeed) {
   const localStorage = createLocalStorage(storageSeed);
+  function EventSourceStub(url) {
+    this.url = url;
+    this.onopen = null;
+    this.onmessage = null;
+    this.onerror = null;
+    this.closed = false;
+  }
+  EventSourceStub.prototype.close = function () {
+    this.closed = true;
+  };
   const context = {
     window: null,
     location: { search: search || '' },
@@ -33,7 +43,8 @@ function loadBridge(search, storageSeed) {
     Date,
     JSON,
     console,
-    WebSocket: function WebSocketStub() {}
+    WebSocket: function WebSocketStub() {},
+    EventSource: EventSourceStub
   };
   context.window = context;
 
@@ -42,7 +53,8 @@ function loadBridge(search, storageSeed) {
 
   return {
     bridge: context.DaffyBridge,
-    localStorage
+    localStorage,
+    context
   };
 }
 
@@ -54,7 +66,7 @@ function testDefaults() {
   const { bridge } = loadBridge('', {});
   assert.deepStrictEqual(snapshotConfig(bridge.getBootstrapConfig()), {
     signalingAdminUrl: '',
-    voiceDiagnosticsUrl: 'http://127.0.0.1:7000/bridge/events'
+    voiceDiagnosticsUrl: 'http://127.0.0.1:7000/bridge'
   });
 
   const eventLog = bridge.getEventLog();
@@ -66,27 +78,27 @@ function testDefaults() {
 function testLocalStorageFallback() {
   const { bridge } = loadBridge('', {
     'daffy-signaling-admin-url': 'http://127.0.0.1:7001',
-    'daffy-voice-admin-url': 'http://127.0.0.1:7000/bridge/events?cached=1'
+    'daffy-voice-admin-url': 'http://127.0.0.1:7000/bridge?cached=1'
   });
 
   assert.deepStrictEqual(snapshotConfig(bridge.getBootstrapConfig()), {
     signalingAdminUrl: 'http://127.0.0.1:7001',
-    voiceDiagnosticsUrl: 'http://127.0.0.1:7000/bridge/events?cached=1'
+    voiceDiagnosticsUrl: 'http://127.0.0.1:7000/bridge?cached=1'
   });
 }
 
 function testQueryWinsOverLocalStorage() {
   const { bridge } = loadBridge(
-    '?signaling_admin=http%3A%2F%2Fquery.example%3A7001&voice_admin=http%3A%2F%2Fquery.example%3A7000%2Fbridge%2Fevents',
+    '?signaling_admin=http%3A%2F%2Fquery.example%3A7001&voice_admin=http%3A%2F%2Fquery.example%3A7000%2Fbridge',
     {
       'daffy-signaling-admin-url': 'http://127.0.0.1:7001',
-      'daffy-voice-admin-url': 'http://127.0.0.1:7000/bridge/events?cached=1'
+      'daffy-voice-admin-url': 'http://127.0.0.1:7000/bridge?cached=1'
     }
   );
 
   assert.deepStrictEqual(snapshotConfig(bridge.getBootstrapConfig()), {
     signalingAdminUrl: 'http://query.example:7001',
-    voiceDiagnosticsUrl: 'http://query.example:7000/bridge/events'
+    voiceDiagnosticsUrl: 'http://query.example:7000/bridge'
   });
 }
 
@@ -94,15 +106,15 @@ function testPersistStoresAndClearsOverrides() {
   const { bridge, localStorage } = loadBridge('', {});
   let resolved = bridge.persistBootstrapConfig({
     signalingAdminUrl: 'http://saved.example:7001',
-    voiceDiagnosticsUrl: 'http://saved.example:7000/bridge/events'
+    voiceDiagnosticsUrl: 'http://saved.example:7000/bridge'
   });
   assert.deepStrictEqual(snapshotConfig(resolved), {
     signalingAdminUrl: 'http://saved.example:7001',
-    voiceDiagnosticsUrl: 'http://saved.example:7000/bridge/events'
+    voiceDiagnosticsUrl: 'http://saved.example:7000/bridge'
   });
   assert.deepStrictEqual(localStorage.dump(), {
     'daffy-signaling-admin-url': 'http://saved.example:7001',
-    'daffy-voice-admin-url': 'http://saved.example:7000/bridge/events'
+    'daffy-voice-admin-url': 'http://saved.example:7000/bridge'
   });
 
   resolved = bridge.persistBootstrapConfig({
@@ -111,12 +123,28 @@ function testPersistStoresAndClearsOverrides() {
   });
   assert.deepStrictEqual(snapshotConfig(resolved), {
     signalingAdminUrl: '',
-    voiceDiagnosticsUrl: 'http://127.0.0.1:7000/bridge/events'
+    voiceDiagnosticsUrl: 'http://127.0.0.1:7000/bridge'
   });
   assert.deepStrictEqual(localStorage.dump(), {});
+}
+
+function testEventStreamLifecycle() {
+  const { bridge } = loadBridge('', {});
+  const streamState = snapshotConfig(bridge.connectEventStream('http://127.0.0.1:7000/bridge'));
+  assert.deepStrictEqual(streamState, {
+    url: 'http://127.0.0.1:7000/bridge',
+    connected: false,
+    lastError: '',
+    reconnects: 0
+  });
+
+  const closed = snapshotConfig(bridge.disconnectEventStream());
+  assert.strictEqual(closed.connected, false);
+  assert.strictEqual(closed.url, 'http://127.0.0.1:7000/bridge');
 }
 
 testDefaults();
 testLocalStorageFallback();
 testQueryWinsOverLocalStorage();
 testPersistStoresAndClearsOverrides();
+testEventStreamLifecycle();

@@ -33,6 +33,11 @@ std::string HttpRequest(const int port, const std::string& method, const std::st
 
       std::string response;
       char buffer[1024];
+      timeval timeout {};
+      timeout.tv_sec = 1;
+      timeout.tv_usec = 0;
+      setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
       while (true) {
         const auto read = recv(fd, buffer, sizeof(buffer), 0);
         if (read <= 0) {
@@ -68,7 +73,7 @@ int main() {
   config.server.bind_address = "127.0.0.1";
   config.server.port = 0;
   config.frontend_bridge.enabled = true;
-  config.frontend_bridge.bridge_endpoint = "/bridge/events";
+  config.frontend_bridge.bridge_endpoint = "/bridge";
   config.frontend_bridge.voice_transport = "native-client-only";
 
   FakeNativeVoiceFacade fake_voice;
@@ -104,7 +109,7 @@ int main() {
   assert(root.find("HTTP/1.1 200 OK") != std::string::npos);
   assert(root.find("Access-Control-Allow-Origin: *") != std::string::npos);
   assert(root.find("\"service\":\"daffy-backend-voice-diagnostics\"") != std::string::npos);
-  assert(root.find("\"voice_bridge\":\"/bridge/events\"") != std::string::npos);
+  assert(root.find("\"voice_bridge\":\"/bridge\"") != std::string::npos);
 
   const auto health = HttpRequest(started.value(), "GET", "/healthz");
   assert(health.find("HTTP/1.1 200 OK") != std::string::npos);
@@ -112,16 +117,19 @@ int main() {
   assert(health.find("\"status\":\"ok\"") != std::string::npos);
   assert(health.find("\"bridge_enabled\":true") != std::string::npos);
 
-  const auto bridge = HttpRequest(started.value(), "GET", "/bridge/events");
+  const auto bridge = HttpRequest(started.value(), "GET", "/bridge");
   assert(bridge.find("HTTP/1.1 200 OK") != std::string::npos);
   assert(bridge.find("Access-Control-Allow-Origin: *") != std::string::npos);
+  assert(bridge.find("Content-Type: text/event-stream") != std::string::npos);
+  assert(bridge.find("\"name\":\"bridge:ready\"") != std::string::npos);
+  assert(bridge.find("\"name\":\"diagnostics:update\"") != std::string::npos);
   assert(bridge.find("\"negotiation_resets\":2") != std::string::npos);
   assert(bridge.find("\"last_negotiation_reset_reason\":\"peer-left\"") != std::string::npos);
   assert(bridge.find("\"turn_fetch_retry_attempts\":3") != std::string::npos);
   assert(bridge.find("\"transport_resets\":4") != std::string::npos);
   assert(bridge.find("\"voice_transport\":\"native-client-only\"") != std::string::npos);
 
-  const auto bad_method = HttpRequest(started.value(), "POST", "/bridge/events");
+  const auto bad_method = HttpRequest(started.value(), "POST", "/bridge");
   assert(bad_method.find("HTTP/1.1 405 Method Not Allowed") != std::string::npos);
   assert(bad_method.find("Access-Control-Allow-Origin: *") != std::string::npos);
 

@@ -57,8 +57,8 @@ private:
         os << "  ;; Imports from DaffyChat runtime\n";
 
         if (file.file_type == ast::FileType::Module) {
-            os << "  (import \"dfc\" \"bridge.emit\" (func $dfc_bridge_emit (param i32 i32)))\n";
-            os << "  (import \"dfc\" \"bridge.on_hook\" (func $dfc_bridge_on_hook (param i32 i32)))\n";
+            os << "  (import \"dfc\" \"bridge.sse_emit\" (func $dfc_bridge_sse_emit (param i32 i32)))\n";
+            os << "  (import \"dfc\" \"bridge.sse_subscribe\" (func $dfc_bridge_sse_subscribe (param i32 i32)))\n";
         } else if (file.file_type == ast::FileType::Program) {
             os << "  (import \"ldc\" \"message.send\" (func $ldc_message_send (param i32)))\n";
             os << "  (import \"ldc\" \"event.emit\" (func $ldc_event_emit (param i32 i32)))\n";

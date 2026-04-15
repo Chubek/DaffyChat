@@ -20,18 +20,11 @@
       .catch(function () { return null; });
   }
 
-  function fetchVoiceDiagnostics(url) {
-    return fetch(url)
-      .then(function (res) { return res.json(); })
-      .catch(function () { return null; });
-  }
-
   global.DaffyAPI = {
     signaling: {
       fetchHealth: fetchHealth,
       fetchRooms: fetchRooms,
-      fetchTurnCredentials: fetchTurnCredentials,
-      fetchVoiceDiagnostics: fetchVoiceDiagnostics
+      fetchTurnCredentials: fetchTurnCredentials
     }
   };
 })(window);
