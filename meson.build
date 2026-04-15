@@ -290,7 +290,7 @@ endif
 
 pegtl_includes = include_directories('third_party/PEGTL/include')
 dssl_includes = include_directories('dssl')
-daffyc_includes = include_directories('daffyc')
+daffyc_includes = include_directories('daffyscript')
 
 dssl_bindgen = executable(
   'dssl-bindgen',
@@ -317,8 +317,8 @@ dssl_docgen = executable(
 )
 
 daffyc_exe = executable(
-  'daffyc',
-  'daffyc/main.cpp',
+  'daffyscript',
+  'daffyscript/main.cpp',
   include_directories: [pegtl_includes, daffyc_includes],
   cpp_args: common_cpp_args,
   install: true,

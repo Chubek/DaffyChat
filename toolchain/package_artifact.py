@@ -15,7 +15,7 @@ BINARIES = [
     ("dssl-bindgen", "usr/bin/dssl-bindgen"),
     ("dssl-docstrip", "usr/bin/dssl-docstrip"),
     ("dssl-docgen", "usr/bin/dssl-docgen"),
-    ("daffyc", "usr/bin/daffyc"),
+    ("daffyscript", "usr/bin/daffyscript"),
     ("libdaffy_core.a", "usr/lib/libdaffy_core.a"),
 ]
 

@@ -161,13 +161,13 @@ build $builddir/signaling_uwebsockets.stamp: run $builddir/daffy-tier2-uwebsocke
 build $builddir/signaling_native_client.stamp: run $builddir/daffy-tier2-native-signaling-client-tests
 build $builddir/frontend_bridge_bootstrap_smoke.stamp: run_node tests/frontend/bridge_bootstrap_smoke.js
 
-build $builddir/deb-package.stamp: package_artifact $builddir/libdaffy_core.a $builddir/daffy-backend $builddir/daffy-signaling $builddir/dssl-bindgen $builddir/dssl-docstrip $builddir/dssl-docgen $builddir/daffyc
+build $builddir/deb-package.stamp: package_artifact $builddir/libdaffy_core.a $builddir/daffy-backend $builddir/daffy-signaling $builddir/dssl-bindgen $builddir/dssl-docstrip $builddir/dssl-docgen $builddir/daffyscript
   format = deb
 
-build $builddir/rpm-package.stamp: package_artifact $builddir/libdaffy_core.a $builddir/daffy-backend $builddir/daffy-signaling $builddir/dssl-bindgen $builddir/dssl-docstrip $builddir/dssl-docgen $builddir/daffyc
+build $builddir/rpm-package.stamp: package_artifact $builddir/libdaffy_core.a $builddir/daffy-backend $builddir/daffy-signaling $builddir/dssl-bindgen $builddir/dssl-docstrip $builddir/dssl-docgen $builddir/daffyscript
   format = rpm
 
-build $builddir/pacman-package.stamp: package_artifact $builddir/libdaffy_core.a $builddir/daffy-backend $builddir/daffy-signaling $builddir/dssl-bindgen $builddir/dssl-docstrip $builddir/dssl-docgen $builddir/daffyc
+build $builddir/pacman-package.stamp: package_artifact $builddir/libdaffy_core.a $builddir/daffy-backend $builddir/daffy-signaling $builddir/dssl-bindgen $builddir/dssl-docstrip $builddir/dssl-docgen $builddir/daffyscript
   format = pacman
 
 build $builddir/frontend_assets.txt: note
@@ -185,8 +185,8 @@ build $builddir/dssl-docgen: link $builddir/dssl_docgen_main.o
   ldflags =
 
 # Daffyscript compiler
-build $builddir/daffyc_main.o: cxx_daffyc daffyc/main.cpp
-build $builddir/daffyc: link $builddir/daffyc_main.o
+build $builddir/daffyc_main.o: cxx_daffyc daffyscript/main.cpp
+build $builddir/daffyscript: link $builddir/daffyc_main.o
   ldflags =
 
 # DSSL / Daffyscript tests
@@ -216,7 +216,7 @@ build daffy-tier2-native-signaling-client-tests: phony $builddir/daffy-tier2-nat
 build dssl-bindgen: phony $builddir/dssl-bindgen
 build dssl-docstrip: phony $builddir/dssl-docstrip
 build dssl-docgen: phony $builddir/dssl-docgen
-build daffyc: phony $builddir/daffyc
+build daffyscript: phony $builddir/daffyscript
 build daffy-dssl-toolchain-tests: phony $builddir/daffy-dssl-toolchain-tests
 build daffy-daffyscript-toolchain-tests: phony $builddir/daffy-daffyscript-toolchain-tests
 build $builddir/dssl_toolchain.stamp: run $builddir/daffy-dssl-toolchain-tests
@@ -227,4 +227,4 @@ build deb: phony $builddir/deb-package.stamp
 build rpm: phony $builddir/rpm-package.stamp
 build pacman: phony $builddir/pacman-package.stamp
 
-default daffy-backend daffy-signaling daffy-bootstrap-tests daffy-tier1-tests daffy-tier3-voice-tests daffy-tier3-portaudio-tests daffy-tier3-portaudio-streams-tests daffy-tier3-media-tests daffy-tier3-native-voice-client-fake-tests daffy-tier3-voice-loopback-fake-tests daffy-tier3-transport-tests daffy-tier3-peer-session-tests daffy-tier2-signaling-tests daffy-tier2-admin-http-tests daffy-tier2-uwebsockets-tests daffy-tier2-native-signaling-client-tests daffy-frontend-bridge-bootstrap-smoke dssl-bindgen dssl-docstrip dssl-docgen daffyc daffy-dssl-toolchain-tests daffy-daffyscript-toolchain-tests
+default daffy-backend daffy-signaling daffy-bootstrap-tests daffy-tier1-tests daffy-tier3-voice-tests daffy-tier3-portaudio-tests daffy-tier3-portaudio-streams-tests daffy-tier3-media-tests daffy-tier3-native-voice-client-fake-tests daffy-tier3-voice-loopback-fake-tests daffy-tier3-transport-tests daffy-tier3-peer-session-tests daffy-tier2-signaling-tests daffy-tier2-admin-http-tests daffy-tier2-uwebsockets-tests daffy-tier2-native-signaling-client-tests daffy-frontend-bridge-bootstrap-smoke dssl-bindgen dssl-docstrip dssl-docgen daffyscript daffy-dssl-toolchain-tests daffy-daffyscript-toolchain-tests

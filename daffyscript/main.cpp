@@ -27,7 +27,7 @@ static std::string stem_of(const std::string& path) {
 }
 
 static void print_usage() {
-    std::cerr << "Usage: daffyc [options] <source-file>\n"
+    std::cerr << "Usage: daffyscript [options] <source-file>\n"
               << "Options:\n"
               << "  --target <module|program|recipe>  Override file-type detection\n"
               << "  --emit-ast                        Dump AST as JSON to stdout\n"

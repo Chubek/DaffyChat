@@ -212,11 +212,11 @@ target_link_libraries(dssl-docgen PRIVATE daffy_project_options)
 # Daffyscript Compiler
 # ---------------------------------------------------------------------------
 
-add_executable(daffyc daffyc/main.cpp)
-target_include_directories(daffyc PRIVATE
+add_executable(daffyscript daffyscript/main.cpp)
+target_include_directories(daffyscript PRIVATE
   "${PROJECT_SOURCE_DIR}/third_party/PEGTL/include"
-  "${PROJECT_SOURCE_DIR}/daffyc")
-target_link_libraries(daffyc PRIVATE daffy_project_options)
+  "${PROJECT_SOURCE_DIR}/daffyscript")
+target_link_libraries(daffyscript PRIVATE daffy_project_options)
 
 # ---------------------------------------------------------------------------
 # DSSL / Daffyscript Tests
@@ -233,13 +233,13 @@ if(DAFFY_ENABLE_TESTS)
   add_executable(daffy-daffyscript-toolchain-tests tests/unit/daffyscript_toolchain.cpp)
   target_include_directories(daffy-daffyscript-toolchain-tests PRIVATE
     "${PROJECT_SOURCE_DIR}/third_party/PEGTL/include"
-    "${PROJECT_SOURCE_DIR}/daffyc")
+    "${PROJECT_SOURCE_DIR}/daffyscript")
   target_link_libraries(daffy-daffyscript-toolchain-tests PRIVATE daffy_project_options)
   add_test(NAME daffy-daffyscript-toolchain COMMAND daffy-daffyscript-toolchain-tests)
 endif()
 
 install(TARGETS daffy_core daffy-backend daffy-signaling
-  dssl-bindgen dssl-docstrip dssl-docgen daffyc
+  dssl-bindgen dssl-docstrip dssl-docgen daffyscript
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
@@ -304,7 +304,7 @@ set(_daffy_package_targets
   dssl-bindgen
   dssl-docstrip
   dssl-docgen
-  daffyc)
+  daffyscript)
 
 if(BUILD_DEB)
   add_custom_target(deb

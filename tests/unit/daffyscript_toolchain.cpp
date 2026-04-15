@@ -3,11 +3,11 @@
 #include <sstream>
 #include <string>
 
-#include "../../daffyc/ast/ast.h"
-#include "../../daffyc/ast/ast_builder.hpp"
-#include "../../daffyc/ast/ast_printer.hpp"
-#include "../../daffyc/sema/sema.hpp"
-#include "../../daffyc/diag/diagnostic.hpp"
+#include "../../daffyscript/ast/ast.h"
+#include "../../daffyscript/ast/ast_builder.hpp"
+#include "../../daffyscript/ast/ast_printer.hpp"
+#include "../../daffyscript/sema/sema.hpp"
+#include "../../daffyscript/diag/diagnostic.hpp"
 
 static void test_detect_module() {
     std::string source = "module test_mod\nversion 1.0.0\n";
