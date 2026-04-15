@@ -1,0 +1,68 @@
+/// Moderation assistant service contract.
+///
+/// This example demonstrates how a DSSL service can express:
+/// - structured moderation records
+/// - operator action RPCs
+/// - admin-oriented REST endpoints
+/// - metadata that a packaging / runtime layer can expose later
+service moderation_assistant 1.0.0;
+
+/// The review state for a moderation case.
+enum CaseState {
+    Open = 0;
+    Snoozed = 1;
+    Resolved = 2;
+}
+
+/// The kind of action an operator may ask the service to take.
+enum ActionKind {
+    Warn = 0;
+    Mute = 1;
+    Kick = 2;
+    Ban = 3;
+}
+
+/// A report raised by a bot, user, or automated rule.
+struct ModerationCase {
+    case_id: string;
+    room_id: string;
+    subject_peer_id: string;
+    reporter_peer_id: optional<string>;
+    reason: string;
+    evidence_excerpt: optional<string>;
+    state: CaseState;
+    created_at: timestamp;
+}
+
+/// A requested operator action.
+struct ModerationAction {
+    case_id: string;
+    action: ActionKind;
+    actor_peer_id: string;
+    note: optional<string>;
+    effective_until: optional<timestamp>;
+}
+
+/// Open a moderation case from text or automation.
+rpc OpenCase(room_id: string, subject_peer_id: string, reason: string) returns ModerationCase;
+
+/// Apply an operator action.
+rpc ApplyAction(case_id: string, action: ActionKind, actor_peer_id: string) returns bool;
+
+/// List all currently open cases for a room.
+rpc ListOpenCases(room_id: string) returns repeated<ModerationCase>;
+
+/// Browser-visible queue endpoint for admin panels.
+rest GET "/api/moderation/open" (room_id: string) returns repeated<ModerationCase>;
+rest POST "/api/moderation/action" (case_id: string, action: string, actor_peer_id: string) returns bool;
+
+/// External hook useful during containerized room bring-up.
+exec queue_stats "curl -sf http://127.0.0.1:8091/metrics";
+
+const MAX_REASON_LENGTH: int32 = 1024;
+
+meta {
+    author: "DaffyChat stdext";
+    category: "moderation";
+    emits_events: "moderation.case.opened moderation.case.resolved";
+}

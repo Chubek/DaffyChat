@@ -1,0 +1,66 @@
+/// Room analytics service contract for DaffyChat.
+///
+/// Why this exists:
+/// - room operators need a stable service contract for health, occupancy, and activity trends
+/// - frontend diagnostics panels need a predictable REST shape
+/// - automation/bots need a typed RPC surface for snapshots and rollups
+///
+/// Architectural note:
+/// DSSL is declarative. This file is not the implementation. The real work lands in
+/// generated C++ service skeletons plus runtime/service wiring.
+service room_analytics 1.0.0;
+
+/// A coarse view of how busy the room is right now.
+enum OccupancyBand {
+    Quiet = 0;
+    Active = 1;
+    Busy = 2;
+    Full = 3;
+}
+
+/// A typed summary that can feed admin dashboards, bots, and webhook payloads.
+struct RoomSnapshot {
+    /// Stable room identifier or slug.
+    room_id: string;
+    /// Number of connected peers known to signaling.
+    participants: int32;
+    /// Number of peers currently publishing voice transport.
+    speaking_participants: int32;
+    /// Messages observed during the current window.
+    messages_last_5m: int32;
+    /// Whether TURN credentials are currently available to newly joining peers.
+    turn_ready: bool;
+    /// Whether the room looks quiet / active / busy / full.
+    occupancy: OccupancyBand;
+    /// Time the snapshot was assembled.
+    captured_at: timestamp;
+}
+
+/// A short historical data point for sparklines or lightweight charts.
+struct TrafficPoint {
+    window_start: timestamp;
+    participants: int32;
+    messages: int32;
+    voice_sessions: int32;
+}
+
+/// Ask the service for the freshest room snapshot.
+rpc GetSnapshot(room_id: string) returns RoomSnapshot;
+
+/// Ask the service for recent traffic history.
+rpc GetTraffic(room_id: string, limit: int32) returns repeated<TrafficPoint>;
+
+/// REST surface for browser-side dashboards that do not want to speak RPC.
+rest GET "/api/analytics/rooms" () returns repeated<string>;
+rest GET "/api/analytics/room" (room_id: string) returns RoomSnapshot;
+
+/// Optional out-of-band health probe used by packaging, ops, or room bring-up tooling.
+exec healthcheck "curl -sf http://127.0.0.1:8088/healthz";
+
+const DEFAULT_HISTORY_LIMIT: int32 = 24;
+
+meta {
+    author: "DaffyChat stdext";
+    category: "observability";
+    frontend_surface: "admin-diagnostics";
+}

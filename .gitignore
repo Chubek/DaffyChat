@@ -151,3 +151,6 @@ Thumbs.db
 # Filterati project local files
 .env
 *.local
+
+# Agents
+AGENTS.md

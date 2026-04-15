@@ -1,0 +1,8 @@
+option('enable_tests', type: 'boolean', value: true, description: 'Build Tier 0 bootstrap tests')
+option('enable_frontend_assets', type: 'boolean', value: true, description: 'Install bundled frontend assets')
+option('build_deb', type: 'boolean', value: false, description: 'Add a `deb` packaging target')
+option('build_rpm', type: 'boolean', value: false, description: 'Add an `rpm` packaging target')
+option('build_pacman', type: 'boolean', value: false, description: 'Add a `pacman` packaging target')
+option('package_deb', type: 'boolean', value: true, description: 'Keep DEB packaging support declared in the build metadata')
+option('package_rpm', type: 'boolean', value: true, description: 'Keep RPM packaging support declared in the build metadata')
+option('package_tgz', type: 'boolean', value: true, description: 'Keep TGZ packaging support declared in the build metadata')

@@ -1,0 +1,230 @@
+builddir = build/ninja
+cc = gcc
+cxx = g++
+python = python3
+cflags = -std=c11 -Wall -Wextra -Wpedantic -Iinclude -Ithird_party/spdlog/include -Ithird_party/libsamplerate/include -Ithird_party/opus/include -Ithird_party/portaudio/include -Ithird_party/rnnoise/include -Ithird_party/uWebSockets/src -Ithird_party/uWebSockets/uSockets/src -DLIBUS_NO_SSL
+cxxflags = -std=c++20 -Wall -Wextra -Wpedantic -Iinclude -Ithird_party/spdlog/include -Ithird_party/libdatachannel/include -Ithird_party/libdatachannel/include/rtc -Ithird_party/libsamplerate/include -Ithird_party/opus/include -Ithird_party/portaudio/include -Ithird_party/rnnoise/include -Ithird_party/uWebSockets/src -Ithird_party/uWebSockets/uSockets/src -DDAFFY_VERSION=\"0.1.0\" -DDAFFY_GIT_REVISION=\"workspace\" -DDAFFY_SOURCE_DIR=\"/home/chubakpdp11/nvme/daffychat\" -DLIBUS_NO_SSL -DUWS_NO_ZLIB
+ldflags = -ldl -ldatachannel -lsrtp2
+node = node
+
+dssl_cxxflags = -std=c++20 -Wall -Wextra -Wpedantic -Ithird_party/PEGTL/include -Idssl
+daffyc_cxxflags = -std=c++20 -Wall -Wextra -Wpedantic -Ithird_party/PEGTL/include -Idaffyc
+rule cc
+  command = mkdir -p $builddir && $cc $cflags -MMD -MF $out.d -c $in -o $out
+  depfile = $out.d
+  deps = gcc
+  description = CC $out
+
+rule cxx
+  command = mkdir -p $builddir && $cxx $cxxflags -MMD -MF $out.d -c $in -o $out
+  depfile = $out.d
+  deps = gcc
+  description = CXX $out
+
+rule link
+  command = mkdir -p $builddir && $cxx $in -o $out $ldflags
+  description = LINK $out
+
+rule run
+  command = mkdir -p $builddir && $in && touch $out
+  description = RUN $in
+
+rule run_node
+  command = mkdir -p $builddir && $node $in && touch $out
+  description = RUN_NODE $in
+
+rule note
+  command = mkdir -p $builddir && printf "%s\n" "$message" > $out
+  description = NOTE $out
+
+rule package_artifact
+  command = mkdir -p $builddir/packages && $python toolchain/package_artifact.py --format $format --source-dir . --build-dir $builddir --output-dir $builddir/packages --version 0.1.0 --stamp $out
+  description = PACKAGE $format
+
+rule cxx_dssl
+  command = mkdir -p $builddir && $cxx $dssl_cxxflags -MMD -MF $out.d -c $in -o $out
+  depfile = $out.d
+  deps = gcc
+  description = CXX_DSSL $out
+
+rule cxx_daffyc
+  command = mkdir -p $builddir && $cxx $daffyc_cxxflags -MMD -MF $out.d -c $in -o $out
+  depfile = $out.d
+  deps = gcc
+  description = CXX_DAFFYC $out
+build $builddir/build_info.o: cxx src/core/build_info.cpp
+build $builddir/id.o: cxx src/core/id.cpp
+build $builddir/logger.o: cxx src/core/logger.cpp
+build $builddir/time.o: cxx src/core/time.cpp
+build $builddir/app_config.o: cxx src/config/app_config.cpp
+build $builddir/json.o: cxx src/util/json.cpp
+build $builddir/event_bus.o: cxx src/runtime/event_bus.cpp
+build $builddir/signaling_messages.o: cxx src/signaling/messages.cpp
+build $builddir/signaling_client_facade.o: cxx src/signaling/signaling_client_facade.cpp
+build $builddir/native_signaling_client.o: cxx src/signaling/native_signaling_client.cpp
+build $builddir/signaling_admin_http_server.o: cxx src/signaling/admin_http_server.cpp
+build $builddir/signaling_server.o: cxx src/signaling/server.cpp
+build $builddir/uwebsockets_server.o: cxx src/signaling/uwebsockets_server.cpp
+build $builddir/service_metadata.o: cxx src/services/service_metadata.cpp
+build $builddir/service_registry.o: cxx src/services/service_registry.cpp
+build $builddir/nng_transport.o: cxx src/ipc/nng_transport.cpp
+build $builddir/room_models.o: cxx src/rooms/models.cpp
+build $builddir/room_events.o: cxx src/rooms/events.cpp
+build $builddir/room_registry.o: cxx src/rooms/room_registry.cpp
+build $builddir/audio_pipeline.o: cxx src/voice/audio_pipeline.cpp
+build $builddir/audio_processing.o: cxx src/voice/audio_processing.cpp
+build $builddir/live_voice_session.o: cxx src/voice/live_voice_session.cpp
+build $builddir/libdatachannel_peer.o: cxx src/voice/libdatachannel_peer.cpp
+build $builddir/media_worker.o: cxx src/voice/media_worker.cpp
+build $builddir/native_voice_client.o: cxx src/voice/native_voice_client.cpp
+build $builddir/opus_codec.o: cxx src/voice/opus_codec.cpp
+build $builddir/portaudio_runtime.o: cxx src/voice/portaudio_runtime.cpp
+build $builddir/portaudio_streams.o: cxx src/voice/portaudio_streams.cpp
+build $builddir/rtp_srtp.o: cxx src/voice/rtp_srtp.cpp
+build $builddir/voice_session_facade.o: cxx src/voice/voice_session_facade.cpp
+build $builddir/voice_loopback_harness.o: cxx src/voice/voice_loopback_harness.cpp
+build $builddir/voice_peer_session.o: cxx src/voice/voice_peer_session.cpp
+build $builddir/webhook.o: cxx src/web/webhook.cpp
+build $builddir/voice_diagnostics_http_server.o: cxx src/web/voice_diagnostics_http_server.cpp
+build $builddir/usockets_bsd.o: cc third_party/uWebSockets/uSockets/src/bsd.c
+build $builddir/usockets_context.o: cc third_party/uWebSockets/uSockets/src/context.c
+build $builddir/usockets_openssl.o: cc third_party/uWebSockets/uSockets/src/crypto/openssl.c
+build $builddir/usockets_epoll_kqueue.o: cc third_party/uWebSockets/uSockets/src/eventing/epoll_kqueue.c
+build $builddir/usockets_loop.o: cc third_party/uWebSockets/uSockets/src/loop.c
+build $builddir/usockets_quic.o: cc third_party/uWebSockets/uSockets/src/quic.c
+build $builddir/usockets_socket.o: cc third_party/uWebSockets/uSockets/src/socket.c
+build $builddir/usockets_udp.o: cc third_party/uWebSockets/uSockets/src/udp.c
+
+build $builddir/backend_main.o: cxx src/cli/backend_main.cpp
+build $builddir/daffy-backend: link $builddir/backend_main.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/signaling_main.o: cxx src/cli/signaling_main.cpp
+build $builddir/daffy-signaling: link $builddir/signaling_main.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/bootstrap_smoke.o: cxx tests/unit/bootstrap_smoke.cpp
+build $builddir/daffy-bootstrap-tests: link $builddir/bootstrap_smoke.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/tier1_core.o: cxx tests/unit/tier1_core.cpp
+build $builddir/daffy-tier1-tests: link $builddir/tier1_core.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+build $builddir/tier3_voice.o: cxx tests/unit/tier3_voice.cpp
+build $builddir/daffy-tier3-voice-tests: link $builddir/tier3_voice.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/tier3_portaudio.o: cxx tests/unit/tier3_portaudio.cpp
+build $builddir/daffy-tier3-portaudio-tests: link $builddir/tier3_portaudio.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/tier3_portaudio_streams.o: cxx tests/unit/tier3_portaudio_streams.cpp
+build $builddir/daffy-tier3-portaudio-streams-tests: link $builddir/tier3_portaudio_streams.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/tier3_media.o: cxx tests/unit/tier3_media.cpp
+build $builddir/daffy-tier3-media-tests: link $builddir/tier3_media.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/tier3_native_voice_client_fake.o: cxx tests/unit/tier3_native_voice_client_fake.cpp
+build $builddir/daffy-tier3-native-voice-client-fake-tests: link $builddir/tier3_native_voice_client_fake.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/tier3_voice_loopback_fake.o: cxx tests/unit/tier3_voice_loopback_fake.cpp
+build $builddir/daffy-tier3-voice-loopback-fake-tests: link $builddir/tier3_voice_loopback_fake.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/tier3_transport.o: cxx tests/unit/tier3_transport.cpp
+build $builddir/daffy-tier3-transport-tests: link $builddir/tier3_transport.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/tier3_peer_session.o: cxx tests/integration/tier3_peer_session.cpp
+build $builddir/daffy-tier3-peer-session-tests: link $builddir/tier3_peer_session.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/signaling_flow.o: cxx tests/integration/signaling_flow.cpp
+build $builddir/daffy-tier2-signaling-tests: link $builddir/signaling_flow.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/signaling_admin_http.o: cxx tests/integration/signaling_admin_http.cpp
+build $builddir/daffy-tier2-admin-http-tests: link $builddir/signaling_admin_http.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/voice_diagnostics_http.o: cxx tests/integration/voice_diagnostics_http.cpp
+build $builddir/daffy-tier2-voice-diagnostics-http-tests: link $builddir/voice_diagnostics_http.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/signaling_uwebsockets.o: cxx tests/integration/signaling_uwebsockets.cpp
+build $builddir/daffy-tier2-uwebsockets-tests: link $builddir/signaling_uwebsockets.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+build $builddir/signaling_native_client.o: cxx tests/integration/signaling_native_client.cpp
+build $builddir/daffy-tier2-native-signaling-client-tests: link $builddir/signaling_native_client.o $builddir/build_info.o $builddir/id.o $builddir/logger.o $builddir/time.o $builddir/app_config.o $builddir/json.o $builddir/event_bus.o $builddir/signaling_messages.o $builddir/signaling_client_facade.o $builddir/native_signaling_client.o $builddir/signaling_admin_http_server.o $builddir/signaling_server.o $builddir/uwebsockets_server.o $builddir/service_metadata.o $builddir/service_registry.o $builddir/nng_transport.o $builddir/room_models.o $builddir/room_events.o $builddir/room_registry.o $builddir/audio_pipeline.o $builddir/audio_processing.o $builddir/live_voice_session.o $builddir/libdatachannel_peer.o $builddir/media_worker.o $builddir/native_voice_client.o $builddir/opus_codec.o $builddir/portaudio_runtime.o $builddir/portaudio_streams.o $builddir/rtp_srtp.o $builddir/voice_session_facade.o $builddir/voice_loopback_harness.o $builddir/voice_peer_session.o $builddir/webhook.o $builddir/voice_diagnostics_http_server.o $builddir/usockets_bsd.o $builddir/usockets_context.o $builddir/usockets_openssl.o $builddir/usockets_epoll_kqueue.o $builddir/usockets_loop.o $builddir/usockets_quic.o $builddir/usockets_socket.o $builddir/usockets_udp.o
+
+build $builddir/bootstrap_smoke.stamp: run $builddir/daffy-bootstrap-tests
+build $builddir/tier1_core.stamp: run $builddir/daffy-tier1-tests
+build $builddir/tier3_voice.stamp: run $builddir/daffy-tier3-voice-tests
+build $builddir/tier3_portaudio.stamp: run $builddir/daffy-tier3-portaudio-tests
+build $builddir/tier3_portaudio_streams.stamp: run $builddir/daffy-tier3-portaudio-streams-tests
+build $builddir/tier3_media.stamp: run $builddir/daffy-tier3-media-tests
+build $builddir/tier3_native_voice_client_fake.stamp: run $builddir/daffy-tier3-native-voice-client-fake-tests
+build $builddir/tier3_voice_loopback_fake.stamp: run $builddir/daffy-tier3-voice-loopback-fake-tests
+build $builddir/tier3_transport.stamp: run $builddir/daffy-tier3-transport-tests
+build $builddir/tier3_peer_session.stamp: run $builddir/daffy-tier3-peer-session-tests
+build $builddir/signaling_flow.stamp: run $builddir/daffy-tier2-signaling-tests
+build $builddir/signaling_admin_http.stamp: run $builddir/daffy-tier2-admin-http-tests
+build $builddir/voice_diagnostics_http.stamp: run $builddir/daffy-tier2-voice-diagnostics-http-tests
+build $builddir/signaling_uwebsockets.stamp: run $builddir/daffy-tier2-uwebsockets-tests
+build $builddir/signaling_native_client.stamp: run $builddir/daffy-tier2-native-signaling-client-tests
+build $builddir/frontend_bridge_bootstrap_smoke.stamp: run_node tests/frontend/bridge_bootstrap_smoke.js
+
+build $builddir/deb-package.stamp: package_artifact $builddir/libdaffy_core.a $builddir/daffy-backend $builddir/daffy-signaling $builddir/dssl-bindgen $builddir/dssl-docstrip $builddir/dssl-docgen $builddir/daffyc
+  format = deb
+
+build $builddir/rpm-package.stamp: package_artifact $builddir/libdaffy_core.a $builddir/daffy-backend $builddir/daffy-signaling $builddir/dssl-bindgen $builddir/dssl-docstrip $builddir/dssl-docgen $builddir/daffyc
+  format = rpm
+
+build $builddir/pacman-package.stamp: package_artifact $builddir/libdaffy_core.a $builddir/daffy-backend $builddir/daffy-signaling $builddir/dssl-bindgen $builddir/dssl-docstrip $builddir/dssl-docgen $builddir/daffyc
+  format = pacman
+
+build $builddir/frontend_assets.txt: note
+  message = Frontend assets: index.html, room.html, guide.html, 403.html, 404.html, bridge.js, app/{styles,state,api,hooks,components}/*.{css,js}
+
+# DSSL toolchain
+build $builddir/dssl_bindgen_main.o: cxx_dssl dssl/tools/bindgen/main.cpp
+build $builddir/dssl-bindgen: link $builddir/dssl_bindgen_main.o
+  ldflags =
+build $builddir/dssl_docstrip_main.o: cxx_dssl dssl/tools/docstrip/main.cpp
+build $builddir/dssl-docstrip: link $builddir/dssl_docstrip_main.o
+  ldflags =
+build $builddir/dssl_docgen_main.o: cxx_dssl dssl/tools/docgen/main.cpp
+build $builddir/dssl-docgen: link $builddir/dssl_docgen_main.o
+  ldflags =
+
+# Daffyscript compiler
+build $builddir/daffyc_main.o: cxx_daffyc daffyc/main.cpp
+build $builddir/daffyc: link $builddir/daffyc_main.o
+  ldflags =
+
+# DSSL / Daffyscript tests
+build $builddir/dssl_toolchain_test.o: cxx_dssl tests/unit/dssl_toolchain.cpp
+build $builddir/daffy-dssl-toolchain-tests: link $builddir/dssl_toolchain_test.o
+  ldflags =
+build $builddir/daffyscript_toolchain_test.o: cxx_daffyc tests/unit/daffyscript_toolchain.cpp
+build $builddir/daffy-daffyscript-toolchain-tests: link $builddir/daffyscript_toolchain_test.o
+  ldflags =
+build daffy-backend: phony $builddir/daffy-backend
+build daffy-signaling: phony $builddir/daffy-signaling
+build daffy-bootstrap-tests: phony $builddir/daffy-bootstrap-tests
+build daffy-tier1-tests: phony $builddir/daffy-tier1-tests
+build daffy-tier3-voice-tests: phony $builddir/daffy-tier3-voice-tests
+build daffy-tier3-portaudio-tests: phony $builddir/daffy-tier3-portaudio-tests
+build daffy-tier3-portaudio-streams-tests: phony $builddir/daffy-tier3-portaudio-streams-tests
+build daffy-tier3-media-tests: phony $builddir/daffy-tier3-media-tests
+build daffy-tier3-native-voice-client-fake-tests: phony $builddir/daffy-tier3-native-voice-client-fake-tests
+build daffy-tier3-voice-loopback-fake-tests: phony $builddir/daffy-tier3-voice-loopback-fake-tests
+build daffy-tier3-transport-tests: phony $builddir/daffy-tier3-transport-tests
+build daffy-tier3-peer-session-tests: phony $builddir/daffy-tier3-peer-session-tests
+build daffy-tier2-signaling-tests: phony $builddir/daffy-tier2-signaling-tests
+build daffy-tier2-admin-http-tests: phony $builddir/daffy-tier2-admin-http-tests
+build daffy-tier2-voice-diagnostics-http-tests: phony $builddir/daffy-tier2-voice-diagnostics-http-tests
+build daffy-tier2-uwebsockets-tests: phony $builddir/daffy-tier2-uwebsockets-tests
+build daffy-tier2-native-signaling-client-tests: phony $builddir/daffy-tier2-native-signaling-client-tests
+build dssl-bindgen: phony $builddir/dssl-bindgen
+build dssl-docstrip: phony $builddir/dssl-docstrip
+build dssl-docgen: phony $builddir/dssl-docgen
+build daffyc: phony $builddir/daffyc
+build daffy-dssl-toolchain-tests: phony $builddir/daffy-dssl-toolchain-tests
+build daffy-daffyscript-toolchain-tests: phony $builddir/daffy-daffyscript-toolchain-tests
+build $builddir/dssl_toolchain.stamp: run $builddir/daffy-dssl-toolchain-tests
+build $builddir/daffyscript_toolchain.stamp: run $builddir/daffy-daffyscript-toolchain-tests
+build test: phony $builddir/bootstrap_smoke.stamp $builddir/tier1_core.stamp $builddir/tier3_voice.stamp $builddir/tier3_portaudio.stamp $builddir/tier3_portaudio_streams.stamp $builddir/tier3_media.stamp $builddir/tier3_native_voice_client_fake.stamp $builddir/tier3_voice_loopback_fake.stamp $builddir/tier3_transport.stamp $builddir/tier3_peer_session.stamp $builddir/signaling_flow.stamp $builddir/signaling_admin_http.stamp $builddir/voice_diagnostics_http.stamp $builddir/signaling_uwebsockets.stamp $builddir/signaling_native_client.stamp $builddir/frontend_bridge_bootstrap_smoke.stamp $builddir/dssl_toolchain.stamp $builddir/daffyscript_toolchain.stamp
+build daffy-frontend-bridge-bootstrap-smoke: phony $builddir/frontend_bridge_bootstrap_smoke.stamp
+build deb: phony $builddir/deb-package.stamp
+build rpm: phony $builddir/rpm-package.stamp
+build pacman: phony $builddir/pacman-package.stamp
+
+default daffy-backend daffy-signaling daffy-bootstrap-tests daffy-tier1-tests daffy-tier3-voice-tests daffy-tier3-portaudio-tests daffy-tier3-portaudio-streams-tests daffy-tier3-media-tests daffy-tier3-native-voice-client-fake-tests daffy-tier3-voice-loopback-fake-tests daffy-tier3-transport-tests daffy-tier3-peer-session-tests daffy-tier2-signaling-tests daffy-tier2-admin-http-tests daffy-tier2-uwebsockets-tests daffy-tier2-native-signaling-client-tests daffy-frontend-bridge-bootstrap-smoke dssl-bindgen dssl-docstrip dssl-docgen daffyc daffy-dssl-toolchain-tests daffy-daffyscript-toolchain-tests

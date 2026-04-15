@@ -1,0 +1,51 @@
+/// Voice operations service contract.
+///
+/// This file exists to show how a native-voice-first product can still expose typed,
+/// browser-safe diagnostics without adding browser voice transport.
+service voice_ops 1.0.0;
+
+/// High-level connection quality for a peer.
+enum VoiceHealth {
+    Healthy = 0;
+    Recovering = 1;
+    Degraded = 2;
+    Failed = 3;
+}
+
+/// Voice state that a diagnostics panel or admin API may want to render.
+struct VoicePeerStatus {
+    room_id: string;
+    peer_id: string;
+    health: VoiceHealth;
+    connected: bool;
+    has_turn_credentials: bool;
+    selected_candidate_pair: optional<string>;
+    transport_resets: int32;
+    negotiation_resets: int32;
+    last_reset_reason: optional<string>;
+    sampled_at: timestamp;
+}
+
+/// Aggregate view over the room's current native voice population.
+struct VoiceRoomStatus {
+    room_id: string;
+    active_peers: int32;
+    degraded_peers: int32;
+    total_transport_resets: int32;
+    total_negotiation_resets: int32;
+    sampled_at: timestamp;
+}
+
+rpc GetPeerStatus(room_id: string, peer_id: string) returns VoicePeerStatus;
+rpc GetRoomStatus(room_id: string) returns VoiceRoomStatus;
+
+rest GET "/api/voice/room" (room_id: string) returns VoiceRoomStatus;
+rest GET "/api/voice/peer" (room_id: string, peer_id: string) returns VoicePeerStatus;
+
+exec bridge_probe "curl -sf http://127.0.0.1:7000/bridge/events";
+
+meta {
+    author: "DaffyChat stdext";
+    category: "voice-diagnostics";
+    audience: "operators frontend-admin diagnostics";
+}

@@ -1,0 +1,71 @@
+recipe "study-pod"
+version 2.0.0
+author "alice"
+description "A focused study room: Pomodoro timer, polls, file sharing, and highlights."
+
+room {
+    max_users: 10,
+    voice: enabled,
+    history: 14.days,
+    language: "en",
+    moderation: moderate,
+}
+
+-- Services
+service "pomodoro" {
+    from: "pomodoro.da",
+    autostart: true,
+    config {
+        work_duration: 25,
+        break_duration: 5,
+    }
+}
+
+service "file_store" {
+    from: "file_store.da",
+    autostart: true,
+    config {
+        max_file_size: "10MB",
+        allowed_types: ["pdf", "png", "jpg", "md"],
+    }
+}
+
+-- Programs
+program "poll_bot"    { from: "poll_bot.dfyp" }
+program "welcome_bot" { from: "welcome.dfyp" }
+
+-- Frontend modules
+module "highlight_ui" { from: "message_highlighter.dfy" }
+
+-- Roles
+roles {
+    role "moderator" {
+        can: [kick, mute, delete_message, pin_message, upload_file]
+    }
+    role "member" {
+        can: [send_message, upload_file, use_voice]
+    }
+    role "guest" {
+        can: [send_message]
+    }
+    default_role: "member"
+}
+
+-- Webhooks
+webhooks {
+    on event "user.joined"  post to "https://hooks.example.com/notify"
+    on event "poll.started" post to "https://hooks.example.com/polls"
+}
+
+-- Optional recorder
+when env.ENABLE_RECORDING == "true" {
+    service "recorder" {
+        from: "audio_recorder.da",
+        autostart: true,
+    }
+}
+
+-- Init logic
+on init {
+    ldc.message.send("📚 Study Pod is live! Use /poll, /vote, and /pomodoro to get started.")
+}

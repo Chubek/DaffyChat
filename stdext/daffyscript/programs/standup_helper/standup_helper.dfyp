@@ -1,0 +1,41 @@
+program standup_helper
+version 1.0.0
+
+import ldc.event
+import ldc.message
+import ldc.storage
+
+-- This room bot demonstrates the "program" side of Daffyscript.
+--
+-- A few practical notes about the current tree:
+-- - the grammar exists for much richer command/event bodies than the compiler currently lowers
+-- - therefore this sample stays intentionally conservative so it remains a useful toolchain example
+-- - the comments describe the room-automation behavior that a fuller runtime should implement
+--
+-- Intended behavior:
+-- 1. initialize a standup session in room-local storage
+-- 2. accept updates from participants
+-- 3. emit room events that services, webhooks, or frontend modules can observe
+-- 4. publish a digest back into the room timeline
+
+struct UpdateEntry {
+    author: str,
+    text: str,
+}
+
+struct StandupState {
+    question: str,
+    entries: int,
+}
+
+fn initialize_standup(question: str) {
+    let message = question
+}
+
+fn record_update(author: str, text: str) {
+    let preview = text
+}
+
+fn publish_digest(count: int) {
+    let summary = count
+}
