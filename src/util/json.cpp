@@ -1,8 +1,11 @@
 #include "daffy/util/json.hpp"
 
+#include <cmath>
 #include <cctype>
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
+#include <limits>
 #include <sstream>
 
 namespace daffy::util::json {
@@ -201,6 +204,15 @@ class Parser {
         Advance();
       }
     }
+    if (!IsAtEnd() && (Peek() == 'e' || Peek() == 'E')) {
+      Advance();
+      if (!IsAtEnd() && (Peek() == '+' || Peek() == '-')) {
+        Advance();
+      }
+      while (!IsAtEnd() && std::isdigit(static_cast<unsigned char>(Peek()))) {
+        Advance();
+      }
+    }
 
     const std::string token(input_.substr(start, position_ - start));
     char* end = nullptr;
@@ -337,7 +349,14 @@ std::string Serialize(const Value& value) {
   }
   if (value.IsNumber()) {
     std::ostringstream stream;
-    stream << value.AsNumber();
+    const double number = value.AsNumber();
+    if (std::isfinite(number) && std::floor(number) == number &&
+        number >= static_cast<double>(std::numeric_limits<long long>::min()) &&
+        number <= static_cast<double>(std::numeric_limits<long long>::max())) {
+      stream << static_cast<long long>(number);
+    } else {
+      stream << std::setprecision(17) << number;
+    }
     return stream.str();
   }
   if (value.IsString()) {

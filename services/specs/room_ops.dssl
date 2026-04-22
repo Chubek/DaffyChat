@@ -1,0 +1,22 @@
+/// Sample multi-RPC room operations service used to exercise generated dispatch.
+service roomops 1.0.0;
+
+/// Reply payload returned when a user joins a room.
+struct JoinReply {
+    user: string;
+    action: string;
+    service_name: string;
+}
+
+/// Reply payload returned when a user leaves a room.
+struct LeaveReply {
+    user: string;
+    action: string;
+    service_name: string;
+}
+
+/// Join a room.
+rpc Join(user: string) returns JoinReply;
+
+/// Leave a room.
+rpc Leave(user: string) returns LeaveReply;

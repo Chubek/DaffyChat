@@ -1,6 +1,9 @@
 #include <cassert>
+#include <chrono>
 #include <sstream>
 #include <string>
+#include <thread>
+#include <unistd.h>
 #include <vector>
 
 #include "daffy/config/app_config.hpp"
@@ -59,18 +62,19 @@ int main() {
   assert(parsed_message.ok());
   assert(parsed_message.value().candidate == signaling_message.candidate);
 
-  daffy::ipc::InMemoryRequestReplyTransport request_reply;
-  auto bind_status = request_reply.Bind("ipc:///tmp/daffychat-services.ipc", [](const daffy::ipc::MessageEnvelope& request) {
+  daffy::ipc::NngRequestReplyTransport request_reply;
+  const std::string service_url = "ipc:///tmp/daffychat-tier1-services-" + std::to_string(getpid()) + ".ipc";
+  auto bind_status = request_reply.Bind(service_url, [](const daffy::ipc::MessageEnvelope& request) {
     return daffy::ipc::MessageEnvelope{"service.echo", "reply", request.payload};
   });
   assert(bind_status.ok());
   auto reply = request_reply.Request(
-      "ipc:///tmp/daffychat-services.ipc",
+      service_url,
       daffy::ipc::MessageEnvelope{"service.echo", "request", daffy::util::json::Value::Object{{"message", "ping"}}});
   assert(reply.ok());
   assert(reply.value().type == "reply");
 
-  daffy::ipc::InMemoryPubSubTransport pubsub;
+  daffy::ipc::NngPubSubTransport pubsub;
   std::size_t delivered_messages = 0;
   auto subscribe_status = pubsub.Subscribe("inproc://room-events", [&](const daffy::ipc::MessageEnvelope& message) {
     if (message.topic == "room.lifecycle") {
@@ -81,6 +85,7 @@ int main() {
   const auto delivered = pubsub.Publish(
       "inproc://room-events",
       daffy::ipc::MessageEnvelope{"room.lifecycle", "event", daffy::util::json::Value::Object{{"room", "alpha"}}});
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
   assert(delivered == 1);
   assert(delivered_messages == 1);
 

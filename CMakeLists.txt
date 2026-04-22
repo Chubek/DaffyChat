@@ -12,6 +12,13 @@ option(DAFFY_ENABLE_FRONTEND_ASSETS "Install bundled frontend assets" ON)
 option(BUILD_DEB "Add a `deb` packaging target" OFF)
 option(BUILD_RPM "Add an `rpm` packaging target" OFF)
 option(BUILD_PACMAN "Add a `pacman` packaging target" OFF)
+option(BUILD_TARBALL "Add a `tarball` packaging target" OFF)
+option(BUILD_GZIP "Add a `gzip` archive target" OFF)
+option(BUILD_BZIP2 "Add a `bzip2` archive target" OFF)
+option(BUILD_ZLIB "Add a `zlib` archive target" OFF)
+option(NO_INSTALL_MAN "Disable manpage installation" OFF)
+option(DAFFY_INSTALL_EXAMPLE_PLUGINS "Install example extensions" ON)
+option(DAFFY_INSTALL_TOOLCHAIN "Install toolchain helper scripts" ON)
 option(DAFFY_PACKAGE_DEB "Enable DEB packaging support" ON)
 option(DAFFY_PACKAGE_RPM "Enable RPM packaging support" ON)
 option(DAFFY_PACKAGE_TGZ "Enable TGZ packaging support" ON)
@@ -21,6 +28,16 @@ set_property(CACHE DAFFY_SANITIZER PROPERTY STRINGS "" address undefined thread 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 include(DaffyVendoredDependencies)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+find_package(Confuse QUIET)
+
+if(DAFFY_HAVE_nng)
+  set(NNG_ENABLE_TLS OFF CACHE BOOL "" FORCE)
+  set(NNG_ENABLE_HTTP OFF CACHE BOOL "" FORCE)
+  set(NNG_TESTS OFF CACHE BOOL "" FORCE)
+  set(NNG_TOOLS OFF CACHE BOOL "" FORCE)
+  set(NNG_ENABLE_NNGCAT OFF CACHE BOOL "" FORCE)
+  add_subdirectory(third_party/nng EXCLUDE_FROM_ALL)
+endif()
 
 add_library(daffy_project_options INTERFACE)
 target_compile_features(daffy_project_options INTERFACE cxx_std_20)
@@ -57,12 +74,23 @@ set(DAFFY_CORE_SOURCES
   src/config/app_config.cpp
   src/util/json.cpp
   src/runtime/event_bus.cpp
+  src/runtime/daemon_manager.cpp
   src/signaling/messages.cpp
   src/signaling/signaling_client_facade.cpp
   src/signaling/native_signaling_client.cpp
   src/signaling/admin_http_server.cpp
   src/signaling/server.cpp
   src/signaling/uwebsockets_server.cpp
+  services/generated/echo.service.cpp
+  services/generated/echo.skeleton.cpp
+  services/generated/room_ops.service.cpp
+  services/generated/room_ops.skeleton.cpp
+  src/services/echo_service.cpp
+  src/services/event_bridge_service.cpp
+  src/services/bot_api_service.cpp
+  src/services/health_service.cpp
+  src/services/room_ops_service.cpp
+  src/services/room_state_service.cpp
   src/services/service_metadata.cpp
   src/services/service_registry.cpp
   src/ipc/nng_transport.cpp
@@ -94,10 +122,12 @@ set(DAFFY_CORE_SOURCES
   third_party/uWebSockets/uSockets/src/udp.c)
 
 add_library(daffy_core STATIC ${DAFFY_CORE_SOURCES})
+add_dependencies(daffy_core daffy-generate-echo-service daffy-generate-room-ops-service)
 
 target_include_directories(daffy_core
   PUBLIC
     "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}"
   PRIVATE
     "${PROJECT_SOURCE_DIR}/third_party/spdlog/include"
     "${PROJECT_SOURCE_DIR}/third_party/libsamplerate/include"
@@ -115,12 +145,36 @@ find_library(DAFFY_SRTP_LIBRARY NAMES srtp2 libsrtp2 REQUIRED)
 
 target_link_libraries(daffy_core PUBLIC daffy_project_options ${CMAKE_DL_LIBS} ${DAFFY_DATACHANNEL_LIBRARY}
                                        ${DAFFY_SRTP_LIBRARY})
+if(TARGET nng)
+  target_link_libraries(daffy_core PUBLIC nng)
+endif()
 
 add_executable(daffy-backend src/cli/backend_main.cpp)
 target_link_libraries(daffy-backend PRIVATE daffy_core)
 
 add_executable(daffy-signaling src/cli/signaling_main.cpp)
 target_link_libraries(daffy-signaling PRIVATE daffy_core)
+
+add_executable(daffydmd src/cli/daffydmd_main.cpp)
+target_link_libraries(daffydmd PRIVATE daffy_core)
+
+add_executable(daffy-echo-service src/cli/echo_service_main.cpp)
+target_link_libraries(daffy-echo-service PRIVATE daffy_core)
+
+add_executable(daffy-health-service src/cli/health_service_main.cpp)
+target_link_libraries(daffy-health-service PRIVATE daffy_core)
+
+add_executable(daffy-botapi-service src/cli/bot_api_service_main.cpp)
+target_link_libraries(daffy-botapi-service PRIVATE daffy_core)
+
+add_executable(daffy-eventbridge-service src/cli/event_bridge_service_main.cpp)
+target_link_libraries(daffy-eventbridge-service PRIVATE daffy_core)
+
+add_executable(daffy-roomops-service src/cli/room_ops_service_main.cpp)
+target_link_libraries(daffy-roomops-service PRIVATE daffy_core)
+
+add_executable(daffy-roomstate-service src/cli/room_state_service_main.cpp)
+target_link_libraries(daffy-roomstate-service PRIVATE daffy_core)
 
 if(DAFFY_ENABLE_TESTS)
   enable_testing()
@@ -131,6 +185,24 @@ if(DAFFY_ENABLE_TESTS)
 
   add_executable(daffy-tier1-tests tests/unit/tier1_core.cpp)
   target_link_libraries(daffy-tier1-tests PRIVATE daffy_core)
+
+  add_executable(daffy-service-vertical-slice-tests tests/unit/service_vertical_slice.cpp)
+  target_link_libraries(daffy-service-vertical-slice-tests PRIVATE daffy_core)
+
+  add_executable(daffy-generated-multi-rpc-tests tests/unit/generated_multi_rpc_service.cpp)
+  target_link_libraries(daffy-generated-multi-rpc-tests PRIVATE daffy_core)
+
+  add_executable(daffy-builtin-services-tests tests/unit/builtin_services.cpp)
+  target_link_libraries(daffy-builtin-services-tests PRIVATE daffy_core)
+
+  add_executable(daffy-event-bridge-service-tests tests/unit/event_bridge_service.cpp)
+  target_link_libraries(daffy-event-bridge-service-tests PRIVATE daffy_core)
+  add_executable(daffy-bot-api-service-tests tests/unit/bot_api_service.cpp)
+  target_link_libraries(daffy-bot-api-service-tests PRIVATE daffy_core)
+
+
+  add_executable(daffy-daemon-manager-tests tests/integration/daemon_manager.cpp)
+  target_link_libraries(daffy-daemon-manager-tests PRIVATE daffy_core)
 
   add_executable(daffy-tier3-voice-tests tests/unit/tier3_voice.cpp)
   target_link_libraries(daffy-tier3-voice-tests PRIVATE daffy_core)
@@ -165,6 +237,12 @@ if(DAFFY_ENABLE_TESTS)
   target_link_libraries(daffy-tier2-native-signaling-client-tests PRIVATE daffy_core)
 
   add_test(NAME daffy-bootstrap-smoke COMMAND daffy-bootstrap-tests)
+  add_test(NAME daffy-service-vertical-slice COMMAND daffy-service-vertical-slice-tests)
+  add_test(NAME daffy-generated-multi-rpc COMMAND daffy-generated-multi-rpc-tests)
+  add_test(NAME daffy-builtin-services COMMAND daffy-builtin-services-tests)
+  add_test(NAME daffy-event-bridge-service COMMAND daffy-event-bridge-service-tests)
+  add_test(NAME daffy-bot-api-service COMMAND daffy-bot-api-service-tests)
+  add_test(NAME daffy-daemon-manager COMMAND daffy-daemon-manager-tests)
   add_test(NAME daffy-tier1-core COMMAND daffy-tier1-tests)
   add_test(NAME daffy-tier3-voice COMMAND daffy-tier3-voice-tests)
   add_test(NAME daffy-tier3-portaudio COMMAND daffy-tier3-portaudio-tests)
@@ -195,6 +273,43 @@ target_include_directories(dssl-bindgen PRIVATE
   "${PROJECT_SOURCE_DIR}/third_party/PEGTL/include"
   "${PROJECT_SOURCE_DIR}/dssl")
 target_link_libraries(dssl-bindgen PRIVATE daffy_project_options)
+
+set(DAFFY_GENERATED_SERVICE_DIR "${CMAKE_BINARY_DIR}/generated/services")
+add_custom_command(
+  OUTPUT
+    "${DAFFY_GENERATED_SERVICE_DIR}/echo.generated.hpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/echo.service.hpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/echo.service.cpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/echo.skeleton.cpp"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${DAFFY_GENERATED_SERVICE_DIR}"
+  COMMAND dssl-bindgen --target cpp --out-dir "${DAFFY_GENERATED_SERVICE_DIR}" "${PROJECT_SOURCE_DIR}/services/specs/echo.dssl"
+  DEPENDS dssl-bindgen "${PROJECT_SOURCE_DIR}/services/specs/echo.dssl"
+  COMMENT "Generating echo service artifacts from DSSL"
+  VERBATIM)
+add_custom_target(daffy-generate-echo-service
+  DEPENDS
+    "${DAFFY_GENERATED_SERVICE_DIR}/echo.generated.hpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/echo.service.hpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/echo.service.cpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/echo.skeleton.cpp")
+
+add_custom_command(
+  OUTPUT
+    "${DAFFY_GENERATED_SERVICE_DIR}/room_ops.generated.hpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/room_ops.service.hpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/room_ops.service.cpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/room_ops.skeleton.cpp"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${DAFFY_GENERATED_SERVICE_DIR}"
+  COMMAND dssl-bindgen --target cpp --out-dir "${DAFFY_GENERATED_SERVICE_DIR}" "${PROJECT_SOURCE_DIR}/services/specs/room_ops.dssl"
+  DEPENDS dssl-bindgen "${PROJECT_SOURCE_DIR}/services/specs/room_ops.dssl"
+  COMMENT "Generating room_ops service artifacts from DSSL"
+  VERBATIM)
+add_custom_target(daffy-generate-room-ops-service
+  DEPENDS
+    "${DAFFY_GENERATED_SERVICE_DIR}/room_ops.generated.hpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/room_ops.service.hpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/room_ops.service.cpp"
+    "${DAFFY_GENERATED_SERVICE_DIR}/room_ops.skeleton.cpp")
 
 add_executable(dssl-docstrip dssl/tools/docstrip/main.cpp)
 target_include_directories(dssl-docstrip PRIVATE
@@ -229,6 +344,7 @@ if(DAFFY_ENABLE_TESTS)
     "${PROJECT_SOURCE_DIR}/dssl")
   target_link_libraries(daffy-dssl-toolchain-tests PRIVATE daffy_project_options)
   add_test(NAME daffy-dssl-toolchain COMMAND daffy-dssl-toolchain-tests)
+  add_dependencies(daffy-dssl-toolchain-tests daffy-generate-echo-service daffy-generate-room-ops-service)
 
   add_executable(daffy-daffyscript-toolchain-tests tests/unit/daffyscript_toolchain.cpp)
   target_include_directories(daffy-daffyscript-toolchain-tests PRIVATE
@@ -238,13 +354,49 @@ if(DAFFY_ENABLE_TESTS)
   add_test(NAME daffy-daffyscript-toolchain COMMAND daffy-daffyscript-toolchain-tests)
 endif()
 
-install(TARGETS daffy_core daffy-backend daffy-signaling
+install(TARGETS daffy_core daffy-backend daffy-signaling daffydmd
   dssl-bindgen dssl-docstrip dssl-docgen daffyscript
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
 
 install(FILES config/daffychat.example.json DESTINATION share/daffychat/config)
+install(FILES config/daffychat.example.json DESTINATION etc/daffychat RENAME daffychat.json)
+if(Confuse_FOUND)
+  install(FILES config/daffychat.example.conf DESTINATION etc/daffychat RENAME daffychat.conf OPTIONAL)
+endif()
+
+install(FILES
+  README.md
+  INSTALL.md
+  GUIDE.md
+  DEPLOY.md
+  EXTENSIBILITY.md
+  RECIPES.md
+  DESTINATION share/daffychat/docs)
+
+install(FILES services/specs/echo.dssl DESTINATION share/daffychat/services/specs)
+install(FILES services/specs/room_ops.dssl DESTINATION share/daffychat/services/specs)
+install(FILES
+  services/generated/echo.generated.hpp
+  services/generated/echo.service.hpp
+  services/generated/echo.service.cpp
+  services/generated/echo.skeleton.cpp
+  services/generated/room_ops.generated.hpp
+  services/generated/room_ops.service.hpp
+  services/generated/room_ops.service.cpp
+  services/generated/room_ops.skeleton.cpp
+  DESTINATION share/daffychat/services/generated)
+
+install(PROGRAMS scripts/deploy.sh DESTINATION share/daffychat/scripts)
+install(FILES scripts/daffydmd.service DESTINATION share/daffychat/scripts)
+if(DAFFY_INSTALL_TOOLCHAIN)
+  install(PROGRAMS
+    toolchain/install-service.py
+    toolchain/package_artifact.py
+    scripts/archive-service.py
+    DESTINATION share/daffychat/toolchain)
+endif()
 
 if(DAFFY_ENABLE_FRONTEND_ASSETS)
   install(FILES
@@ -273,7 +425,16 @@ if(DAFFY_ENABLE_FRONTEND_ASSETS)
     DESTINATION share/daffychat/frontend/app/components)
 endif()
 
-install(DIRECTORY stdext DESTINATION share/daffychat)
+if(DAFFY_INSTALL_EXAMPLE_PLUGINS)
+  install(DIRECTORY stdext DESTINATION share/daffychat)
+endif()
+
+if(NOT NO_INSTALL_MAN AND EXISTS "${PROJECT_SOURCE_DIR}/man")
+  install(DIRECTORY man/ DESTINATION share/man/man1 FILES_MATCHING PATTERN "*.1")
+  add_custom_target(install-manpages
+    COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}" --component manpages
+    COMMENT "Installing DaffyChat manpages")
+endif()
 
 set(CPACK_PACKAGE_NAME "daffychat")
 set(CPACK_PACKAGE_VENDOR "DaffyChat")
@@ -308,7 +469,7 @@ set(_daffy_package_targets
 
 if(BUILD_DEB)
   add_custom_target(deb
-    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/toolchain/package_artifact.py"
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/archive-service.py"
       --format deb
       --source-dir "${PROJECT_SOURCE_DIR}"
       --build-dir "${CMAKE_BINARY_DIR}"
@@ -320,7 +481,7 @@ endif()
 
 if(BUILD_RPM)
   add_custom_target(rpm
-    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/toolchain/package_artifact.py"
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/archive-service.py"
       --format rpm
       --source-dir "${PROJECT_SOURCE_DIR}"
       --build-dir "${CMAKE_BINARY_DIR}"
@@ -332,7 +493,7 @@ endif()
 
 if(BUILD_PACMAN)
   add_custom_target(pacman
-    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/toolchain/package_artifact.py"
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/archive-service.py"
       --format pacman
       --source-dir "${PROJECT_SOURCE_DIR}"
       --build-dir "${CMAKE_BINARY_DIR}"
@@ -340,4 +501,52 @@ if(BUILD_PACMAN)
       --version "${PROJECT_VERSION}"
     DEPENDS ${_daffy_package_targets}
     COMMENT "Building DaffyChat Pacman package")
+endif()
+
+if(BUILD_TARBALL)
+  add_custom_target(tarball
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/archive-service.py"
+      --format tarball
+      --source-dir "${PROJECT_SOURCE_DIR}"
+      --build-dir "${CMAKE_BINARY_DIR}"
+      --output-dir "${CMAKE_BINARY_DIR}/packages"
+      --version "${PROJECT_VERSION}"
+    DEPENDS ${_daffy_package_targets}
+    COMMENT "Building DaffyChat tarball")
+endif()
+
+if(BUILD_GZIP)
+  add_custom_target(gzip
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/archive-service.py"
+      --format gz
+      --source-dir "${PROJECT_SOURCE_DIR}"
+      --build-dir "${CMAKE_BINARY_DIR}"
+      --output-dir "${CMAKE_BINARY_DIR}/packages"
+      --version "${PROJECT_VERSION}"
+    DEPENDS ${_daffy_package_targets}
+    COMMENT "Building DaffyChat gzip archive")
+endif()
+
+if(BUILD_BZIP2)
+  add_custom_target(bzip2
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/archive-service.py"
+      --format bz2
+      --source-dir "${PROJECT_SOURCE_DIR}"
+      --build-dir "${CMAKE_BINARY_DIR}"
+      --output-dir "${CMAKE_BINARY_DIR}/packages"
+      --version "${PROJECT_VERSION}"
+    DEPENDS ${_daffy_package_targets}
+    COMMENT "Building DaffyChat bzip2 archive")
+endif()
+
+if(BUILD_ZLIB)
+  add_custom_target(zlib
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/archive-service.py"
+      --format zlib
+      --source-dir "${PROJECT_SOURCE_DIR}"
+      --build-dir "${CMAKE_BINARY_DIR}"
+      --output-dir "${CMAKE_BINARY_DIR}/packages"
+      --version "${PROJECT_VERSION}"
+    DEPENDS ${_daffy_package_targets}
+    COMMENT "Building DaffyChat zlib archive")
 endif()

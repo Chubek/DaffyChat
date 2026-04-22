@@ -1,0 +1,21 @@
+{
+  "id": "example-greeter",
+  "name": "Example Greeter",
+  "version": "1.0.0",
+  "description": "A simple example extension that greets users when they join a room",
+  "author": "DaffyChat Team",
+  "wasmUrl": "/extensions/example-greeter.wasm",
+  "permissions": [
+    "rooms.read",
+    "messages.write",
+    "events.read"
+  ],
+  "hooks": [
+    "room:participant-joined",
+    "room:participant-left"
+  ],
+  "metadata": {
+    "category": "social",
+    "tags": ["greeting", "welcome", "example"]
+  }
+}

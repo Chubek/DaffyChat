@@ -1,0 +1,85 @@
+/// Built-in Bot API service for automated agent integration.
+service botapi 1.0.0;
+
+/// Bot registration record.
+struct BotRecord {
+    bot_id: string;
+    display_name: string;
+    enabled: bool;
+    created_at: string;
+    updated_at: string;
+    capabilities: string[];
+    room_scope: string[];
+}
+
+/// Bot authentication token.
+struct BotToken {
+    token_id: string;
+    bearer: string;
+}
+
+/// Bot room session state.
+struct BotSession {
+    session_id: string;
+    bot_id: string;
+    room_id: string;
+    joined_at: string;
+    last_seen_at: string;
+    state: string;
+}
+
+/// Room participant record.
+struct ParticipantRecord {
+    participant_id: string;
+    display_name: string;
+    role: string;
+}
+
+/// Room event record.
+struct RoomEvent {
+    sequence: number;
+    topic: string;
+    timestamp: string;
+    payload: string;
+}
+
+/// Bot command record.
+struct BotCommand {
+    command_id: string;
+    room_id: string;
+    bot_id: string;
+    name: string;
+    args: string;
+    issued_by: string;
+    issued_at: string;
+}
+
+/// Register a new bot and issue authentication token.
+rpc RegisterBot(display_name: string, capabilities: string[], room_scope: string[]) returns BotRecord;
+
+/// Retrieve bot metadata by ID.
+rpc GetBot(bot_id: string) returns BotRecord;
+
+/// List all registered bots with optional filters.
+rpc ListBots(enabled: bool, room_id: string, capability: string) returns BotRecord[];
+
+/// Join a room as an authenticated bot.
+rpc JoinRoom(token: string, room_id: string) returns BotSession;
+
+/// Leave a room as an authenticated bot.
+rpc LeaveRoom(token: string, room_id: string) returns bool;
+
+/// Post a message to a room as an authenticated bot.
+rpc PostMessage(token: string, room_id: string, text: string, metadata: string) returns string;
+
+/// Poll room events for an authenticated bot using cursor-based replay.
+rpc PollEvents(token: string, room_id: string, after_sequence: number, limit: number) returns RoomEvent[];
+
+/// Submit a structured bot command for execution.
+rpc HandleCommand(token: string, room_id: string, name: string, args: string, issued_by: string) returns BotCommand;
+
+/// Execute a moderation action on a participant.
+rpc ModerateParticipant(token: string, room_id: string, participant_id: string, action: string, reason: string) returns bool;
+
+/// Return bot service health and statistics.
+rpc Status() returns string;

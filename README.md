@@ -1,18 +1,40 @@
-# DaffyChat: Ephemeral, Extensible, Voice-Enabled Chatrooms
+# DaffyChat
 
-DaffyChat is an application that provides ephemeral, voice-enabled chatrooms. DaffyChat rooms are *extensible*, meaning, there are several ways you can extend your experience with a room. Each DaffyChat room runs on a separate container, isolated from the system. Whenever you prefix a message with `/`, that becomes a special message, which the many extensibiity methods of DaffyChat can intercept.
+DaffyChat is a native-first, extensible chatroom platform with a bundled web frontend, a native voice stack, and multiple planned extension surfaces including DSSL services, Daffyscript recipes, Lua, REST APIs, and shared-library plugins.
 
-There are several extension methods offered by DaffyChat, server-side and client-side. 
+## Repository Status
 
-**Client-Side Extensibility**
-- The frontend event bus. You can write a backend extension that publishes an event, intercepted by the frontend Event Bridge. You can respond to these events in any way you want;
-- WebAssembly modules. You can write a program, compile it to WASM, and inject it to your chatroom. DaffyChat offers a language called "Daffyscript" which compiles directly to DaffyChat-conformat WASM modules;
-- You can start a room with a "Room Recipe". These recipes are writen in DaffyScript, again. A Room Recipe specifies how a room should function, esepcially vis-a-vis the extensions;
-- The APIs. DaffyChat rooms have access to many REST APIs, e.g. the Bot API. These services are defined using DSSL, or the Daffy Service Specification Language. We'll discusss them momentarily.
+The current tree is a bootstrap implementation. Core architecture, build targets, packaging helpers, and test scaffolding are present, while several runtime-heavy subsystems are still incomplete.
 
-**Server-Side Extensiblity**
-- The services. We write a DaffyChat service in the aformentioned DSSL. We then daemonize the service, and launch it. There's a central daemon manager, because otherwise, it would be impossible. Daemonizing every service stops us from having to create a systemd spec for each service;
-- Lua. The classic extension language, which might as well be embedded into my eyeglasses. With Lua, you can do many things. There are several libraries provided that help the task realized;
-- Plugins, via the DaffyChat plugin API. We use the interface declared in the plugins header file to write a program, compile it to a shared library, and inject it into DaffyChat's runtime;
+## Start Here
 
-**Can I use DaffyChat yet?** Not right now. Some kinks need to be fixed, and some chinks need to be untied off the chain. I wrote DaffyChat to chat with someone very important to me. That is why I want it finished soon.
+- `INSTALL.md` for local build and installation
+- `GUIDE.md` for a quick orientation to the codebase
+- `DEPLOY.md` for deployment and packaging notes
+- `EXTENSIBILITY.md` for extension surfaces and roadmap
+- `RECIPES.md` for room recipe concepts and current status
+- `docs/architecture/overview.md` for the locked bootstrap architecture
+- `dssl/README.md` for the DSSL language reference
+
+## Current Primary Targets
+
+- `daffy-backend`
+- `daffy-signaling`
+- `dssl-bindgen`
+- `dssl-docstrip`
+- `dssl-docgen`
+- `daffyscript`
+
+## Current Gaps
+
+- `daffydmd` is not implemented yet
+- default services under `service/` are not implemented yet
+- extension examples and plugin API docs are still sparse
+- deployment support is scaffolded but not production complete
+
+## Build
+
+```sh
+cmake -S . -B build/cmake -G Ninja
+cmake --build build/cmake
+```

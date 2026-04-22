@@ -1,0 +1,19 @@
+/// Sample echo service used to exercise the DSSL -> generated C++ -> runtime path.
+service echo 1.0.0;
+
+/// Request payload accepted by the sample service.
+struct EchoRequest {
+    message: string;
+    sender: string;
+}
+
+/// Reply payload returned by the sample service.
+struct EchoReply {
+    message: string;
+    sender: string;
+    service_name: string;
+    echoed: bool;
+}
+
+/// Echo a chat message back to the caller.
+rpc Echo(message: string, sender: string) returns EchoReply;

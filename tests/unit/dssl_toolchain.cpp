@@ -1,4 +1,7 @@
 #include <cassert>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -6,6 +9,7 @@
 #include "../../dssl/ast/ast.h"
 #include "../../dssl/ast/ast_builder.hpp"
 #include "../../dssl/ast/ast_printer.hpp"
+#include "../../dssl/codegen/cpp/cpp_gen.hpp"
 #include "../../dssl/sema/sema.hpp"
 #include "../../dssl/diag/diagnostic.hpp"
 
@@ -289,6 +293,193 @@ meta {
     std::cout << "  PASS: full_pipeline\n";
 }
 
+static void test_cpp_codegen_service_adapter() {
+    const std::string spec_path = std::string(DAFFY_SOURCE_DIR) + "/services/specs/echo.dssl";
+    std::ifstream source_file(spec_path);
+    std::stringstream source_buffer;
+    source_buffer << source_file.rdbuf();
+    const std::string source = source_buffer.str();
+
+    dssl::DiagEngine diag;
+    dssl::ast::File file;
+    const bool ok = dssl::ast::ParseFile(spec_path, source, file, diag);
+    assert(ok);
+
+    dssl::sema::SemanticAnalyzer sema(diag);
+    assert(sema.analyze(file));
+
+    const auto out_dir = std::filesystem::temp_directory_path() / "daffy-dssl-codegen-test";
+    std::filesystem::create_directories(out_dir);
+    dssl::codegen::CppGenerator gen;
+    assert(gen.generate(file, out_dir.string()));
+
+    std::ifstream service_header(out_dir / "echo.service.hpp");
+    std::stringstream header_buffer;
+    header_buffer << service_header.rdbuf();
+    const auto header = header_buffer.str();
+    assert(header.find("EchoGeneratedService") != std::string::npos);
+    assert(header.find("Handle") != std::string::npos);
+
+    std::ifstream service_source(out_dir / "echo.service.cpp");
+    std::stringstream generated_buffer;
+    generated_buffer << service_source.rdbuf();
+    const auto generated = generated_buffer.str();
+    assert(generated.find("service.echo") != std::string::npos);
+    assert(generated.find("Echo(message, sender)") != std::string::npos);
+    std::cout << "  PASS: cpp_codegen_service_adapter\n";
+}
+
+static std::string read_text_file(const std::filesystem::path& path) {
+    std::ifstream file(path);
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+class CerrCapture {
+public:
+    CerrCapture() : old_(std::cerr.rdbuf(stream_.rdbuf())) {}
+    ~CerrCapture() { std::cerr.rdbuf(old_); }
+
+    std::string str() const { return stream_.str(); }
+
+private:
+    std::ostringstream stream_;
+    std::streambuf* old_;
+};
+
+static void test_cpp_codegen_matches_checked_in_echo_fixture() {
+    const std::filesystem::path source_dir = DAFFY_SOURCE_DIR;
+    const auto spec_path = source_dir / "services/specs/echo.dssl";
+    const auto generated_dir = source_dir / "services/generated";
+
+    std::ifstream source_file(spec_path);
+    std::stringstream source_buffer;
+    source_buffer << source_file.rdbuf();
+
+    dssl::DiagEngine diag;
+    dssl::ast::File file;
+    const bool ok = dssl::ast::ParseFile(spec_path.string(), source_buffer.str(), file, diag);
+    assert(ok);
+
+    dssl::sema::SemanticAnalyzer sema(diag);
+    assert(sema.analyze(file));
+
+    const auto out_dir = std::filesystem::temp_directory_path() / ("daffy-dssl-fixture-" + std::to_string(std::rand()));
+    std::filesystem::create_directories(out_dir);
+
+    dssl::codegen::CppGenerator gen;
+    assert(gen.generate(file, out_dir.string()));
+
+    assert(read_text_file(out_dir / "echo.generated.hpp") == read_text_file(generated_dir / "echo.generated.hpp"));
+    assert(read_text_file(out_dir / "echo.service.hpp") == read_text_file(generated_dir / "echo.service.hpp"));
+    assert(read_text_file(out_dir / "echo.service.cpp") == read_text_file(generated_dir / "echo.service.cpp"));
+    assert(read_text_file(out_dir / "echo.skeleton.cpp") == read_text_file(generated_dir / "echo.skeleton.cpp"));
+    std::filesystem::remove_all(out_dir);
+    std::cout << "  PASS: cpp_codegen_matches_checked_in_echo_fixture\n";
+}
+
+static void test_cpp_codegen_matches_checked_in_room_ops_fixture() {
+    const std::filesystem::path source_dir = DAFFY_SOURCE_DIR;
+    const auto spec_path = source_dir / "services/specs/room_ops.dssl";
+    const auto generated_dir = source_dir / "services/generated";
+
+    std::ifstream source_file(spec_path);
+    std::stringstream source_buffer;
+    source_buffer << source_file.rdbuf();
+
+    dssl::DiagEngine diag;
+    dssl::ast::File file;
+    const bool ok = dssl::ast::ParseFile(spec_path.string(), source_buffer.str(), file, diag);
+    assert(ok);
+
+    dssl::sema::SemanticAnalyzer sema(diag);
+    assert(sema.analyze(file));
+
+    const auto out_dir = std::filesystem::temp_directory_path() / ("daffy-dssl-room-ops-" + std::to_string(std::rand()));
+    std::filesystem::create_directories(out_dir);
+
+    dssl::codegen::CppGenerator gen;
+    assert(gen.generate(file, out_dir.string()));
+
+    assert(read_text_file(out_dir / "room_ops.generated.hpp") == read_text_file(generated_dir / "room_ops.generated.hpp"));
+    assert(read_text_file(out_dir / "room_ops.service.hpp") == read_text_file(generated_dir / "room_ops.service.hpp"));
+    assert(read_text_file(out_dir / "room_ops.service.cpp") == read_text_file(generated_dir / "room_ops.service.cpp"));
+    assert(read_text_file(out_dir / "room_ops.skeleton.cpp") == read_text_file(generated_dir / "room_ops.skeleton.cpp"));
+    std::filesystem::remove_all(out_dir);
+    std::cout << "  PASS: cpp_codegen_matches_checked_in_room_ops_fixture\n";
+}
+
+static void test_cpp_codegen_multi_rpc_dispatch() {
+    std::string source = R"(
+service multi 1.0.0;
+
+struct HelloReply {
+    message: string;
+}
+
+struct GoodbyeReply {
+    message: string;
+}
+
+rpc Hello(name: string) returns HelloReply;
+rpc Goodbye(name: string) returns GoodbyeReply;
+)";
+
+    dssl::DiagEngine diag;
+    dssl::ast::File file;
+    const bool ok = dssl::ast::ParseFile("multi.dssl", source, file, diag);
+    assert(ok);
+
+    dssl::sema::SemanticAnalyzer sema(diag);
+    assert(sema.analyze(file));
+
+    const auto out_dir = std::filesystem::temp_directory_path() / ("daffy-dssl-multi-" + std::to_string(std::rand()));
+    std::filesystem::create_directories(out_dir);
+
+    dssl::codegen::CppGenerator gen;
+    assert(gen.generate(file, out_dir.string()));
+
+    const auto generated = read_text_file(out_dir / "multi.service.cpp");
+    assert(generated.find("request.payload.Find(\"rpc\")") != std::string::npos);
+    assert(generated.find("if (rpc_name == \"Hello\")") != std::string::npos);
+    assert(generated.find("if (rpc_name == \"Goodbye\")") != std::string::npos);
+    assert(generated.find("Unknown RPC requested for this service") != std::string::npos);
+
+    std::filesystem::remove_all(out_dir);
+    std::cout << "  PASS: cpp_codegen_multi_rpc_dispatch\n";
+}
+
+static void test_cpp_codegen_rejects_unsupported_adapter_types() {
+    std::string source = R"(
+service unsupported 1.0.0;
+
+rpc BatchEcho(messages: repeated<string>) returns repeated<string>;
+)";
+
+    dssl::DiagEngine diag;
+    dssl::ast::File file;
+    const bool ok = dssl::ast::ParseFile("unsupported.dssl", source, file, diag);
+    assert(ok);
+
+    dssl::sema::SemanticAnalyzer sema(diag);
+    assert(sema.analyze(file));
+
+    const auto out_dir = std::filesystem::temp_directory_path() / ("daffy-dssl-unsupported-" + std::to_string(std::rand()));
+    std::filesystem::create_directories(out_dir);
+
+    CerrCapture cerr_capture;
+    dssl::codegen::CppGenerator gen;
+    assert(!gen.generate(file, out_dir.string()));
+    const auto diagnostics = cerr_capture.str();
+    assert(diagnostics.find("RPC `BatchEcho` parameter `messages` uses unsupported adapter type") != std::string::npos);
+    assert(diagnostics.find("RPC `BatchEcho` return type is unsupported for the generated adapter") != std::string::npos);
+    assert(!std::filesystem::exists(out_dir / "unsupported.service.cpp"));
+
+    std::filesystem::remove_all(out_dir);
+    std::cout << "  PASS: cpp_codegen_rejects_unsupported_adapter_types\n";
+}
+
 int main() {
     std::cout << "DSSL toolchain tests:\n";
     test_parse_service();
@@ -304,6 +495,11 @@ int main() {
     test_sema_unknown_type();
     test_ast_printer();
     test_full_pipeline();
+    test_cpp_codegen_service_adapter();
+    test_cpp_codegen_matches_checked_in_echo_fixture();
+    test_cpp_codegen_matches_checked_in_room_ops_fixture();
+    test_cpp_codegen_multi_rpc_dispatch();
+    test_cpp_codegen_rejects_unsupported_adapter_types();
     std::cout << "All DSSL toolchain tests passed.\n";
     return 0;
 }

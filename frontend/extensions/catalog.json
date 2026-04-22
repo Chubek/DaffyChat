@@ -1,0 +1,71 @@
+{
+  "version": "1.0",
+  "name": "DaffyChat Extension Catalog",
+  "description": "Official catalog of DaffyChat extensions",
+  "extensions": [
+    {
+      "id": "example-greeter",
+      "name": "Example Greeter",
+      "version": "1.0.0",
+      "description": "A simple example extension that greets users when they join a room",
+      "author": "DaffyChat Team",
+      "wasmUrl": "/extensions/example-greeter.wasm",
+      "permissions": [
+        "rooms.read",
+        "messages.write",
+        "events.read"
+      ],
+      "hooks": [
+        "room:participant-joined",
+        "room:participant-left"
+      ],
+      "metadata": {
+        "category": "social",
+        "tags": ["greeting", "welcome", "example"]
+      }
+    },
+    {
+      "id": "message-formatter",
+      "name": "Message Formatter",
+      "version": "1.0.0",
+      "description": "Formats messages with custom styling and emoji support",
+      "author": "DaffyChat Team",
+      "wasmUrl": "/extensions/message-formatter.wasm",
+      "permissions": [
+        "messages.read",
+        "messages.write"
+      ],
+      "hooks": [
+        "message:before-send",
+        "message:received"
+      ],
+      "metadata": {
+        "category": "utility",
+        "tags": ["formatting", "emoji", "styling"]
+      }
+    },
+    {
+      "id": "room-analytics",
+      "name": "Room Analytics",
+      "version": "1.0.0",
+      "description": "Tracks room activity and provides usage statistics",
+      "author": "DaffyChat Team",
+      "wasmUrl": "/extensions/room-analytics.wasm",
+      "permissions": [
+        "rooms.read",
+        "events.read",
+        "storage.write"
+      ],
+      "hooks": [
+        "room:created",
+        "room:participant-joined",
+        "room:participant-left",
+        "message:sent"
+      ],
+      "metadata": {
+        "category": "analytics",
+        "tags": ["statistics", "tracking", "analytics"]
+      }
+    }
+  ]
+}
