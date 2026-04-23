@@ -1,4 +1,5 @@
 #include <cassert>
+#include <iostream>
 #include <string>
 #include <unistd.h>
 
@@ -15,9 +16,12 @@ int main() {
 
   daffy::ipc::NngRequestReplyTransport transport;
   const daffy::services::EchoService service;
-  const std::string service_url = "ipc:///tmp/daffychat-echo-service-" + std::to_string(getpid()) + ".ipc";
+  const std::string service_url = "ipc:///tmp/daffy-test-" + std::to_string(getpid()) + ".sock";
   auto bind_status = service.Bind(transport, service_url);
-  assert(bind_status.ok());
+  if (!bind_status.ok()) {
+    std::cerr << "Bind failed: " << bind_status.error().message << std::endl;
+    return 1;
+  }
 
   auto reply = transport.Request(service_url,
                                  daffy::ipc::MessageEnvelope{

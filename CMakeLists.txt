@@ -204,6 +204,12 @@ if(DAFFY_ENABLE_TESTS)
   add_executable(daffy-daemon-manager-tests tests/integration/daemon_manager.cpp)
   target_link_libraries(daffy-daemon-manager-tests PRIVATE daffy_core)
 
+  add_executable(daffy-room-lifecycle-tests tests/integration/room_lifecycle.cpp)
+  target_link_libraries(daffy-room-lifecycle-tests PRIVATE daffy_core)
+
+  add_executable(daffy-service-integration-tests tests/integration/service_integration.cpp)
+  target_link_libraries(daffy-service-integration-tests PRIVATE daffy_core)
+
   add_executable(daffy-tier3-voice-tests tests/unit/tier3_voice.cpp)
   target_link_libraries(daffy-tier3-voice-tests PRIVATE daffy_core)
 
@@ -243,6 +249,8 @@ if(DAFFY_ENABLE_TESTS)
   add_test(NAME daffy-event-bridge-service COMMAND daffy-event-bridge-service-tests)
   add_test(NAME daffy-bot-api-service COMMAND daffy-bot-api-service-tests)
   add_test(NAME daffy-daemon-manager COMMAND daffy-daemon-manager-tests)
+  add_test(NAME daffy-room-lifecycle COMMAND daffy-room-lifecycle-tests)
+  add_test(NAME daffy-service-integration COMMAND daffy-service-integration-tests)
   add_test(NAME daffy-tier1-core COMMAND daffy-tier1-tests)
   add_test(NAME daffy-tier3-voice COMMAND daffy-tier3-voice-tests)
   add_test(NAME daffy-tier3-portaudio COMMAND daffy-tier3-portaudio-tests)
