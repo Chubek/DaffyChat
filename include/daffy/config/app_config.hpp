@@ -85,6 +85,8 @@ struct AppConfig {
 AppConfig DefaultAppConfig();
 std::string DescribeAppConfig(const AppConfig& config);
 std::string ExampleConfigPath();
+std::string SystemConfigPath();
+std::string DefaultConfigPath();
 core::Result<AppConfig> ParseAppConfigFromJson(std::string_view json_text);
 core::Result<AppConfig> LoadAppConfigFromFile(const std::string& path);
 util::json::Value AppConfigToJson(const AppConfig& config);

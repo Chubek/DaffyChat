@@ -95,7 +95,8 @@ target_compile_features(daffy_project_options INTERFACE cxx_std_20)
 target_compile_definitions(daffy_project_options INTERFACE
   DAFFY_VERSION="${PROJECT_VERSION}"
   DAFFY_GIT_REVISION="workspace"
-  DAFFY_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+  DAFFY_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+  DAFFY_SYSCONFDIR="/etc/daffychat")
 
 if(DAFFY_ENABLE_WARNINGS)
   target_compile_options(daffy_project_options INTERFACE

@@ -7,6 +7,10 @@
 #define DAFFY_SOURCE_DIR "."
 #endif
 
+#ifndef DAFFY_SYSCONFDIR
+#define DAFFY_SYSCONFDIR "/etc/daffychat"
+#endif
+
 namespace daffy::config {
 namespace {
 
@@ -59,7 +63,39 @@ std::vector<std::string> ReadStringArray(const util::json::Value& object, std::s
 
 AppConfig DefaultAppConfig() { return AppConfig{}; }
 
-std::string ExampleConfigPath() { return std::string(DAFFY_SOURCE_DIR) + "/config/daffychat.example.json"; }
+std::string ExampleConfigPath() { 
+  return std::string(DAFFY_SOURCE_DIR) + "/config/daffychat.example.json"; 
+}
+
+std::string SystemConfigPath() {
+  // Check for system config files in order of preference
+  std::vector<std::string> candidates = {
+    std::string(DAFFY_SYSCONFDIR) + "/daffychat.json",
+    std::string(DAFFY_SYSCONFDIR) + "/daffychat.conf",
+    "/etc/daffychat/daffychat.json",
+    "/etc/daffychat/daffychat.conf",
+  };
+  
+  for (const auto& path : candidates) {
+    std::ifstream file(path);
+    if (file.good()) {
+      return path;
+    }
+  }
+  
+  // Fallback to development path if no system config exists
+  return ExampleConfigPath();
+}
+
+std::string DefaultConfigPath() {
+  // For installed binaries, prefer system config
+  // For development, fall back to example config
+  std::string sys_path = SystemConfigPath();
+  if (sys_path != ExampleConfigPath()) {
+    return sys_path;
+  }
+  return ExampleConfigPath();
+}
 
 std::string DescribeAppConfig(const AppConfig& config) {
   std::ostringstream stream;

@@ -346,7 +346,7 @@ int RunBackend(const std::string& config_path) {
 
 int main(int argc, char** argv) {
   std::string_view mode;
-  std::string config_path = daffy::config::ExampleConfigPath();
+  std::string config_path = daffy::config::DefaultConfigPath();
   int voice_smoke_duration_ms = 2000;
   int voice_peer_telemetry_interval_ms = 1000;
   bool duration_overridden = false;

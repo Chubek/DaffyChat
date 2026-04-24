@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
   }
 
   std::string_view mode;
-  std::string config_path = daffy::config::ExampleConfigPath();
+  std::string config_path = daffy::config::DefaultConfigPath();
   for (int index = 1; index < argc; ++index) {
     const std::string_view argument = argv[index];
     if (argument == "--health" || argument == "--debug" || argument == "--serve") {
