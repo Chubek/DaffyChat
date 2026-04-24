@@ -407,14 +407,22 @@ endif
 
 install_data('config/daffychat.example.json', install_dir: get_option('datadir') / 'daffychat' / 'config')
 
+# Config installation handled by post-install script based on config_format
+if not get_option('client_side_only')
+  install_data('config/daffychat.example.conf', install_dir: get_option('datadir') / 'daffychat' / 'config')
+endif
+
+# Scripts
+install_data(['scripts/deploy.sh', 'scripts/os-service.pl', 'scripts/post-install.sh'], install_dir: get_option('datadir') / 'daffychat' / 'scripts', install_mode: 'rwxr-xr-x')
+install_data('scripts/daffydmd.service', install_dir: get_option('datadir') / 'daffychat' / 'scripts')
+
 if get_option('enable_frontend_assets')
   install_data(
     [
       'frontend/index.html',
       'frontend/room.html',
       'frontend/guide.html',
-      'frontend/403.html',
-      'frontend/404.html',
+      'frontend/dynerror.html',
       'frontend/bridge.js',
     ],
     install_dir: get_option('datadir') / 'daffychat' / 'frontend'
@@ -442,9 +450,62 @@ if get_option('enable_frontend_assets')
     ],
     install_dir: get_option('datadir') / 'daffychat' / 'frontend' / 'app' / 'components'
   )
+  install_data(
+    [
+      'frontend/lib/animate.min.css',
+      'frontend/lib/quote.js',
+    ],
+    install_dir: get_option('datadir') / 'daffychat' / 'frontend' / 'lib'
+  )
+  install_data(
+    [
+      'frontend/resources/boxicons.min.css',
+      'frontend/resources/box-icons.list',
+      'frontend/resources/quotes.json',
+      'frontend/resources/error-messages.json',
+    ],
+    install_dir: get_option('datadir') / 'daffychat' / 'frontend' / 'resources'
+  )
+endif
+
+if get_option('install_default_services')
+  install_subdir('services/builtin', install_dir: get_option('datadir') / 'daffychat' / 'services')
 endif
 
 install_subdir('stdext', install_dir: get_option('datadir') / 'daffychat')
+
+# Documentation build and install
+if get_option('build_docs') or get_option('install_docs')
+  doxygen = find_program('doxygen', required: false)
+  sphinx_build = find_program('sphinx-build', required: false)
+  
+  if doxygen.found() and sphinx_build.found()
+    doxygen_target = custom_target('doxygen',
+      output: 'xml',
+      command: [doxygen, meson.project_source_root() / 'docs' / 'Doxyfile'],
+      build_by_default: get_option('build_docs'),
+      install: false
+    )
+    
+    sphinx_target = custom_target('sphinx',
+      output: 'html',
+      command: [
+        sphinx_build,
+        '-b', 'html',
+        meson.project_source_root() / 'docs',
+        '@OUTPUT@'
+      ],
+      depends: doxygen_target,
+      build_by_default: get_option('build_docs'),
+      install: get_option('install_docs'),
+      install_dir: get_option('datadir') / 'doc' / 'daffychat'
+    )
+    
+    alias_target('docs', sphinx_target)
+  else
+    warning('Doxygen or Sphinx not found, documentation will not be built')
+  endif
+endif
 
 summary({
   'build_deb': get_option('build_deb'),

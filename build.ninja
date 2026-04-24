@@ -171,7 +171,7 @@ build $builddir/pacman-package.stamp: package_artifact $builddir/libdaffy_core.a
   format = pacman
 
 build $builddir/frontend_assets.txt: note
-  message = Frontend assets: index.html, room.html, guide.html, 403.html, 404.html, bridge.js, app/{styles,state,api,hooks,components}/*.{css,js}
+  message = Frontend assets: index.html, room.html, guide.html, dynerror.html, bridge.js, lib/*.{css,js}, resources/*.{css,json,list}, app/{styles,state,api,hooks,components}/*.{css,js}
 
 # DSSL toolchain
 build $builddir/dssl_bindgen_main.o: cxx_dssl dssl/tools/bindgen/main.cpp

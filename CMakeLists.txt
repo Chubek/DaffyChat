@@ -9,6 +9,12 @@ option(DAFFY_ENABLE_WARNINGS "Enable strict compiler warnings" ON)
 option(DAFFY_ENABLE_WERROR "Treat warnings as errors" OFF)
 option(DAFFY_ENABLE_TESTS "Build test targets" ON)
 option(DAFFY_ENABLE_FRONTEND_ASSETS "Install bundled frontend assets" ON)
+option(DAFFY_INSTALL_DEFAULT_SERVICES "Install default service specifications" ON)
+option(DAFFY_BUILD_DOCS "Build documentation with Doxygen/Sphinx" OFF)
+option(DAFFY_INSTALL_DOCS "Build and install documentation" OFF)
+option(DAFFY_CLIENT_SIDE_ONLY "Build and install client-side tools only" OFF)
+set(DAFFY_CONFIG_FORMAT "JSON" CACHE STRING "Config format to install: JSON or CONF")
+set_property(CACHE DAFFY_CONFIG_FORMAT PROPERTY STRINGS JSON CONF)
 option(BUILD_DEB "Add a `deb` packaging target" OFF)
 option(BUILD_RPM "Add an `rpm` packaging target" OFF)
 option(BUILD_PACMAN "Add a `pacman` packaging target" OFF)
@@ -19,9 +25,9 @@ option(BUILD_ZLIB "Add a `zlib` archive target" OFF)
 option(NO_INSTALL_MAN "Disable manpage installation" OFF)
 option(DAFFY_INSTALL_EXAMPLE_PLUGINS "Install example extensions" ON)
 option(DAFFY_INSTALL_TOOLCHAIN "Install toolchain helper scripts" ON)
-option(DAFFY_PACKAGE_DEB "Enable DEB packaging support" ON)
-option(DAFFY_PACKAGE_RPM "Enable RPM packaging support" ON)
-option(DAFFY_PACKAGE_TGZ "Enable TGZ packaging support" ON)
+option(DAFFY_PACKAGE_DEB "Enable DEB packaging support" OFF)
+option(DAFFY_PACKAGE_RPM "Enable RPM packaging support" OFF)
+option(DAFFY_PACKAGE_TGZ "Enable TGZ packaging support" OFF)
 set(DAFFY_SANITIZER "" CACHE STRING "Optional sanitizer: address, undefined, thread, leak")
 set_property(CACHE DAFFY_SANITIZER PROPERTY STRINGS "" address undefined thread leak)
 
@@ -369,9 +375,10 @@ install(TARGETS daffy_core daffy-backend daffy-signaling daffydmd
   ARCHIVE DESTINATION lib)
 
 install(FILES config/daffychat.example.json DESTINATION share/daffychat/config)
-install(FILES config/daffychat.example.json DESTINATION etc/daffychat RENAME daffychat.json)
-if(Confuse_FOUND)
-  install(FILES config/daffychat.example.conf DESTINATION etc/daffychat RENAME daffychat.conf OPTIONAL)
+
+# Config installation handled by post-install script based on DAFFY_CONFIG_FORMAT
+if(NOT DAFFY_CLIENT_SIDE_ONLY)
+  install(FILES config/daffychat.example.conf DESTINATION share/daffychat/config OPTIONAL)
 endif()
 
 install(FILES
@@ -396,8 +403,16 @@ install(FILES
   services/generated/room_ops.skeleton.cpp
   DESTINATION share/daffychat/services/generated)
 
+if(DAFFY_INSTALL_DEFAULT_SERVICES)
+  install(DIRECTORY services/builtin DESTINATION share/daffychat/services
+    FILES_MATCHING PATTERN "*.dssl" PATTERN "*.cpp" PATTERN "*.hpp")
+endif()
+
 install(PROGRAMS scripts/deploy.sh DESTINATION share/daffychat/scripts)
 install(FILES scripts/daffydmd.service DESTINATION share/daffychat/scripts)
+install(PROGRAMS scripts/os-service.pl DESTINATION share/daffychat/scripts)
+install(PROGRAMS scripts/post-install.sh DESTINATION share/daffychat/scripts)
+
 if(DAFFY_INSTALL_TOOLCHAIN)
   install(PROGRAMS
     toolchain/install-service.py
@@ -411,8 +426,7 @@ if(DAFFY_ENABLE_FRONTEND_ASSETS)
     frontend/index.html
     frontend/room.html
     frontend/guide.html
-    frontend/403.html
-    frontend/404.html
+    frontend/dynerror.html
     frontend/bridge.js
     DESTINATION share/daffychat/frontend)
   install(FILES
@@ -431,6 +445,16 @@ if(DAFFY_ENABLE_FRONTEND_ASSETS)
     frontend/app/components/message-renderer.js
     frontend/app/components/theme-toggle.js
     DESTINATION share/daffychat/frontend/app/components)
+  install(FILES
+    frontend/lib/animate.min.css
+    frontend/lib/quote.js
+    DESTINATION share/daffychat/frontend/lib)
+  install(FILES
+    frontend/resources/boxicons.min.css
+    frontend/resources/box-icons.list
+    frontend/resources/quotes.json
+    frontend/resources/error-messages.json
+    DESTINATION share/daffychat/frontend/resources)
 endif()
 
 if(DAFFY_INSTALL_EXAMPLE_PLUGINS)
@@ -442,6 +466,44 @@ if(NOT NO_INSTALL_MAN AND EXISTS "${PROJECT_SOURCE_DIR}/man")
   add_custom_target(install-manpages
     COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}" --component manpages
     COMMENT "Installing DaffyChat manpages")
+endif()
+
+# Documentation build and install
+if(DAFFY_BUILD_DOCS OR DAFFY_INSTALL_DOCS)
+  find_package(Doxygen)
+  find_program(SPHINX_BUILD sphinx-build)
+  
+  if(DOXYGEN_FOUND AND SPHINX_BUILD)
+    set(DOXYGEN_INPUT_DIR "${PROJECT_SOURCE_DIR}/include")
+    set(DOXYGEN_OUTPUT_DIR "${CMAKE_BINARY_DIR}/docs/xml")
+    set(SPHINX_SOURCE_DIR "${PROJECT_SOURCE_DIR}/docs")
+    set(SPHINX_BUILD_DIR "${CMAKE_BINARY_DIR}/docs/html")
+    
+    # Doxygen target
+    add_custom_target(doxygen
+      COMMAND ${DOXYGEN_EXECUTABLE} ${PROJECT_SOURCE_DIR}/docs/Doxyfile
+      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/docs
+      COMMENT "Generating C++ API documentation with Doxygen"
+      VERBATIM)
+    
+    # Sphinx target
+    add_custom_target(sphinx
+      COMMAND ${SPHINX_BUILD} -b html ${SPHINX_SOURCE_DIR} ${SPHINX_BUILD_DIR}
+      DEPENDS doxygen
+      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+      COMMENT "Generating documentation with Sphinx"
+      VERBATIM)
+    
+    add_custom_target(docs DEPENDS sphinx)
+    
+    if(DAFFY_INSTALL_DOCS)
+      install(DIRECTORY ${SPHINX_BUILD_DIR}/
+        DESTINATION share/doc/daffychat/html
+        OPTIONAL)
+    endif()
+  else()
+    message(WARNING "Doxygen or Sphinx not found, documentation will not be built")
+  endif()
 endif()
 
 set(CPACK_PACKAGE_NAME "daffychat")
