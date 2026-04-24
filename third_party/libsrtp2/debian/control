@@ -1,0 +1,83 @@
+Source: libsrtp2
+Priority: optional
+Maintainer: openKylin KDE SIG <kde@lists.openkylin.top>
+Build-Depends:
+ d-shlibs (>= 0.91~),
+ debhelper-compat (= 13),
+ pkg-kde-tools,
+ libnss3-dev,
+ libpcap0.8-dev <!nocheck>,
+ pkg-config,
+ pkg-kde-tools,
+ procps,
+ psmisc,
+Build-Depends-Indep:
+ doxygen,
+Standards-Version: 4.6.2
+Section: libs
+Vcs-Git: https://gitee.com/openkylin/libsrtp2.git
+Vcs-Browser: https://gitee.com/openkylin/libsrtp2
+Homepage: https://github.com/cisco/libsrtp
+Rules-Requires-Root: no
+
+Package: libsrtp2-dev
+Section: libdevel
+Depends:
+ libsrtp2-1 (= ${binary:Version}),
+ pkg-config,
+ ${devlibs:Depends},
+ ${misc:Depends},
+Suggests:
+ libsrtp2-docs,
+Architecture: any
+Description: Secure RTP (SRTP) and UST Reference Implementations - development files
+ SRTP is a security profile for RTP
+ that adds confidentiality, message authentication, and replay protection
+ to that protocol.
+ It is specified in RFC 3711.
+ .
+ LibSRTP provides an implementation
+ of the Secure Real-time Transport Protocol (SRTP),
+ the Universal Security Transform (UST),
+ and a supporting cryptographic kernel.
+ .
+ This package contains the development headers and static libraries.
+
+Package: libsrtp2-1
+Section: libs
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Architecture: any
+Multi-Arch: same
+Description: Secure RTP (SRTP) and UST Reference Implementations - shared library
+ SRTP is a security profile for RTP
+ that adds confidentiality, message authentication, and replay protection
+ to that protocol.
+ It is specified in RFC 3711.
+ .
+ LibSRTP provides an implementation
+ of the Secure Real-time Transport Protocol (SRTP),
+ the Universal Security Transform (UST),
+ and a supporting cryptographic kernel.
+ .
+ This package contains the shared libraries.
+
+Package: libsrtp2-docs
+Section: doc
+Depends:
+ ${misc:Depends},
+Architecture: all
+Description: Secure RTP (SRTP) and UST Reference Implementations - documentation
+ SRTP is a security profile for RTP that adds confidentiality, message
+ authentication, and replay protection to that protocol. It is specified
+ in RFC 3711.
+ .
+ LibSRTP provides an implementation
+ of the Secure Real-time Transport Protocol (SRTP),
+ the Universal Security Transform (UST),
+ and a supporting cryptographic kernel.
+ .
+ This package contains API documentation.

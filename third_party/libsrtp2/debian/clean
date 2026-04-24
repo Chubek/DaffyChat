@@ -1,0 +1,6 @@
+crypto/Makefile
+crypto/test/env
+debian/stamp-make-docs
+doc/html/
+libsrtp2.pc
+libsrtp2.so.*

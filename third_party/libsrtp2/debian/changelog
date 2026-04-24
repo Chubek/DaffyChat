@@ -1,0 +1,17 @@
+libsrtp2 (2.5.0-ok1.1) nile; urgency=medium
+
+  * fix build.
+
+ -- rtlhq <nobelxyz@163.com>  Wed, 25 Oct 2023 10:24:24 +0800
+
+libsrtp2 (2.5.0-ok1) nile; urgency=medium
+
+  * New Upstream version 2.5.0.
+
+ -- rtlhq <nobelxyz@163.com>  Sat, 02 Sep 2023 18:10:25 +0800
+
+libsrtp2 (2.4.2-3ok1) yangtze; urgency=medium
+
+  * Build for openkylin.
+
+ -- rtlhq <nobelxyz@163.com>  Tue, 13 Sep 2022 15:49:05 +0800

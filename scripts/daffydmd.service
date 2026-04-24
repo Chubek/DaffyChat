@@ -1,5 +1,6 @@
 [Unit]
 Description=DaffyChat Daemon Manager
+Documentation=https://github.com/Chubek/DaffyChat
 After=network-online.target
 Wants=network-online.target
 
@@ -7,10 +8,13 @@ Wants=network-online.target
 Type=simple
 User=root
 Group=root
-ExecStart=/opt/daffychat/bin/daffydmd --config /etc/daffychat/daffychat.json
+ExecStart=/usr/local/bin/daffydmd --config /etc/daffychat/daffychat.json
 Restart=on-failure
 RestartSec=2s
 WorkingDirectory=/var/lib/daffychat
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daffydmd
 
 [Install]
 WantedBy=multi-user.target

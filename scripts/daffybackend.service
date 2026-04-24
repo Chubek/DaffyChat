@@ -1,0 +1,21 @@
+[Unit]
+Description=DaffyChat Backend Server
+Documentation=https://github.com/Chubek/DaffyChat
+After=network-online.target daffydmd.service
+Wants=network-online.target
+Requires=daffydmd.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/daffy-backend --config /etc/daffychat/daffychat.json
+Restart=on-failure
+RestartSec=3s
+WorkingDirectory=/var/lib/daffychat
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daffy-backend
+
+[Install]
+WantedBy=multi-user.target

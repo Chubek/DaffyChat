@@ -15,6 +15,16 @@ option(DAFFY_INSTALL_DOCS "Build and install documentation" OFF)
 option(DAFFY_CLIENT_SIDE_ONLY "Build and install client-side tools only" OFF)
 set(DAFFY_CONFIG_FORMAT "JSON" CACHE STRING "Config format to install: JSON or CONF")
 set_property(CACHE DAFFY_CONFIG_FORMAT PROPERTY STRINGS JSON CONF)
+
+# Linking mode: DYNAMIC (default), STATIC, or PACK
+# DYNAMIC  – link against system-installed shared libraries (default)
+# STATIC   – build vendored libs from source and statically link them in
+# PACK     – build vendored libs as shared objects and bundle them in packages
+set(LINKING "DYNAMIC" CACHE STRING "Library linking mode: DYNAMIC | STATIC | PACK")
+set_property(CACHE LINKING PROPERTY STRINGS DYNAMIC STATIC PACK)
+
+option(PACK_FRONTEND "Bundle and install frontend assets in packages" ON)
+
 option(BUILD_DEB "Add a `deb` packaging target" OFF)
 option(BUILD_RPM "Add an `rpm` packaging target" OFF)
 option(BUILD_PACMAN "Add a `pacman` packaging target" OFF)
@@ -42,7 +52,40 @@ if(DAFFY_HAVE_nng)
   set(NNG_TESTS OFF CACHE BOOL "" FORCE)
   set(NNG_TOOLS OFF CACHE BOOL "" FORCE)
   set(NNG_ENABLE_NNGCAT OFF CACHE BOOL "" FORCE)
-  add_subdirectory(third_party/nng EXCLUDE_FROM_ALL)
+  if(LINKING STREQUAL "STATIC")
+    # Build nng as a static archive and link it wholly into daffy_core
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    add_subdirectory(third_party/nng EXCLUDE_FROM_ALL)
+    set_target_properties(nng PROPERTIES
+      POSITION_INDEPENDENT_CODE ON)
+  elseif(LINKING STREQUAL "PACK")
+    # Build nng as a shared library that will be bundled in the package
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+    add_subdirectory(third_party/nng EXCLUDE_FROM_ALL)
+    # Collect the shared library for later packaging
+    set(DAFFY_PACK_SHARED_LIBS ${DAFFY_PACK_SHARED_LIBS} nng CACHE INTERNAL "")
+  else()
+    # DYNAMIC: prefer system-installed libnng; fall back to vendored build
+    find_library(_DAFFY_SYS_NNG NAMES nng libnng)
+    if(_DAFFY_SYS_NNG)
+      message(STATUS "Using system nng: ${_DAFFY_SYS_NNG}")
+      add_library(nng SHARED IMPORTED)
+      set_target_properties(nng PROPERTIES IMPORTED_LOCATION "${_DAFFY_SYS_NNG}")
+      # Expose nng headers from vendored source regardless
+      target_include_directories(nng INTERFACE
+        "${PROJECT_SOURCE_DIR}/third_party/nng/include")
+    else()
+      message(STATUS "System nng not found – building vendored nng as shared library")
+      set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+      add_subdirectory(third_party/nng EXCLUDE_FROM_ALL)
+    endif()
+  endif()
+endif()
+
+# For STATIC mode: tell the linker to pull in the full archive so all
+# nng symbols survive even if daffy_core is itself static.
+if(LINKING STREQUAL "STATIC" AND TARGET nng)
+  set(DAFFY_NNG_LINK_FLAGS "-Wl,--whole-archive $<TARGET_FILE:nng> -Wl,--no-whole-archive")
 endif()
 
 add_library(daffy_project_options INTERFACE)
@@ -152,7 +195,15 @@ find_library(DAFFY_SRTP_LIBRARY NAMES srtp2 libsrtp2 REQUIRED)
 target_link_libraries(daffy_core PUBLIC daffy_project_options ${CMAKE_DL_LIBS} ${DAFFY_DATACHANNEL_LIBRARY}
                                        ${DAFFY_SRTP_LIBRARY})
 if(TARGET nng)
-  target_link_libraries(daffy_core PUBLIC nng)
+  if(LINKING STREQUAL "STATIC")
+    # For static linking we use whole-archive so that all nng translation
+    # units are included even though daffy_core is also a static archive.
+    target_link_libraries(daffy_core PUBLIC
+      -Wl,--whole-archive $<TARGET_FILE:nng> -Wl,--no-whole-archive)
+    add_dependencies(daffy_core nng)
+  else()
+    target_link_libraries(daffy_core PUBLIC nng)
+  endif()
 endif()
 
 add_executable(daffy-backend src/cli/backend_main.cpp)
@@ -163,6 +214,15 @@ target_link_libraries(daffy-signaling PRIVATE daffy_core)
 
 add_executable(daffydmd src/cli/daffydmd_main.cpp)
 target_link_libraries(daffydmd PRIVATE daffy_core)
+
+# STATIC mode: pull in C++ runtime statically so no libnng.so / libstdc++.so
+# is required at runtime.  GCC/Clang only – harmless on MSVC (not supported).
+if(LINKING STREQUAL "STATIC")
+  foreach(_tgt daffy-backend daffy-signaling daffydmd)
+    target_link_options(${_tgt} PRIVATE
+      $<$<CXX_COMPILER_ID:GNU,Clang>:-static-libstdc++ -static-libgcc>)
+  endforeach()
+endif()
 
 add_executable(daffy-echo-service src/cli/echo_service_main.cpp)
 target_link_libraries(daffy-echo-service PRIVATE daffy_core)
@@ -410,8 +470,12 @@ endif()
 
 install(PROGRAMS scripts/deploy.sh DESTINATION share/daffychat/scripts)
 install(FILES scripts/daffydmd.service DESTINATION share/daffychat/scripts)
+install(FILES scripts/daffybackend.service DESTINATION share/daffychat/scripts)
+install(FILES scripts/daffysignaling.service DESTINATION share/daffychat/scripts)
 install(PROGRAMS scripts/os-service.pl DESTINATION share/daffychat/scripts)
 install(PROGRAMS scripts/post-install.sh DESTINATION share/daffychat/scripts)
+install(PROGRAMS scripts/linking-service.sh DESTINATION share/daffychat/scripts)
+install(PROGRAMS scripts/install-frontend.sh DESTINATION share/daffychat/scripts)
 
 if(DAFFY_INSTALL_TOOLCHAIN)
   install(PROGRAMS
@@ -421,7 +485,7 @@ if(DAFFY_INSTALL_TOOLCHAIN)
     DESTINATION share/daffychat/toolchain)
 endif()
 
-if(DAFFY_ENABLE_FRONTEND_ASSETS)
+if(DAFFY_ENABLE_FRONTEND_ASSETS AND PACK_FRONTEND)
   install(FILES
     frontend/index.html
     frontend/room.html
@@ -455,6 +519,22 @@ if(DAFFY_ENABLE_FRONTEND_ASSETS)
     frontend/resources/quotes.json
     frontend/resources/error-messages.json
     DESTINATION share/daffychat/frontend/resources)
+endif()
+
+# PACK linking mode: install vendored shared libraries so the package can
+# deliver them alongside the binaries.
+if(LINKING STREQUAL "PACK")
+  # nng shared library
+  if(TARGET nng)
+    install(FILES $<TARGET_FILE:nng>
+      DESTINATION lib/daffychat
+      OPTIONAL)
+    # Also create an ld.so.conf.d snippet so the system linker finds the lib
+    install(CODE "
+      file(WRITE \"\${CMAKE_INSTALL_PREFIX}/etc/ld.so.conf.d/daffychat.conf\"
+           \"\${CMAKE_INSTALL_PREFIX}/lib/daffychat\n\")
+    ")
+  endif()
 endif()
 
 if(DAFFY_INSTALL_EXAMPLE_PLUGINS)
@@ -532,10 +612,17 @@ set(_daffy_package_targets
   daffy_core
   daffy-backend
   daffy-signaling
+  daffydmd
   dssl-bindgen
   dssl-docstrip
   dssl-docgen
   daffyscript)
+
+# Shared flags passed to archive-service.py for every package format
+set(_daffy_archive_flags
+  --linking "${LINKING}"
+  $<IF:$<BOOL:${PACK_FRONTEND}>,--pack-frontend,--no-pack-frontend>
+  $<IF:$<BOOL:${DAFFY_CLIENT_SIDE_ONLY}>,--client-only,>)
 
 if(BUILD_DEB)
   add_custom_target(deb
@@ -545,6 +632,7 @@ if(BUILD_DEB)
       --build-dir "${CMAKE_BINARY_DIR}"
       --output-dir "${CMAKE_BINARY_DIR}/packages"
       --version "${PROJECT_VERSION}"
+      ${_daffy_archive_flags}
     DEPENDS ${_daffy_package_targets}
     COMMENT "Building DaffyChat DEB package")
 endif()
@@ -557,6 +645,7 @@ if(BUILD_RPM)
       --build-dir "${CMAKE_BINARY_DIR}"
       --output-dir "${CMAKE_BINARY_DIR}/packages"
       --version "${PROJECT_VERSION}"
+      ${_daffy_archive_flags}
     DEPENDS ${_daffy_package_targets}
     COMMENT "Building DaffyChat RPM package")
 endif()
@@ -569,6 +658,7 @@ if(BUILD_PACMAN)
       --build-dir "${CMAKE_BINARY_DIR}"
       --output-dir "${CMAKE_BINARY_DIR}/packages"
       --version "${PROJECT_VERSION}"
+      ${_daffy_archive_flags}
     DEPENDS ${_daffy_package_targets}
     COMMENT "Building DaffyChat Pacman package")
 endif()
@@ -581,6 +671,7 @@ if(BUILD_TARBALL)
       --build-dir "${CMAKE_BINARY_DIR}"
       --output-dir "${CMAKE_BINARY_DIR}/packages"
       --version "${PROJECT_VERSION}"
+      ${_daffy_archive_flags}
     DEPENDS ${_daffy_package_targets}
     COMMENT "Building DaffyChat tarball")
 endif()
@@ -593,6 +684,7 @@ if(BUILD_GZIP)
       --build-dir "${CMAKE_BINARY_DIR}"
       --output-dir "${CMAKE_BINARY_DIR}/packages"
       --version "${PROJECT_VERSION}"
+      ${_daffy_archive_flags}
     DEPENDS ${_daffy_package_targets}
     COMMENT "Building DaffyChat gzip archive")
 endif()
@@ -605,6 +697,7 @@ if(BUILD_BZIP2)
       --build-dir "${CMAKE_BINARY_DIR}"
       --output-dir "${CMAKE_BINARY_DIR}/packages"
       --version "${PROJECT_VERSION}"
+      ${_daffy_archive_flags}
     DEPENDS ${_daffy_package_targets}
     COMMENT "Building DaffyChat bzip2 archive")
 endif()
@@ -617,6 +710,7 @@ if(BUILD_ZLIB)
       --build-dir "${CMAKE_BINARY_DIR}"
       --output-dir "${CMAKE_BINARY_DIR}/packages"
       --version "${PROJECT_VERSION}"
+      ${_daffy_archive_flags}
     DEPENDS ${_daffy_package_targets}
     COMMENT "Building DaffyChat zlib archive")
 endif()

@@ -1,0 +1,67 @@
+#!/usr/bin/make -f
+
+CONFIGURE_OPTS = --disable-stdout --enable-syslog
+ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
+CONFIGURE_OPTS += --enable-debug
+else
+CONFIGURE_OPTS += --disable-debug
+endif
+
+CONFIGURE_OPTS += --enable-nss
+
+DEB_CFLAGS_MAINT_APPEND = -D_REENTRANT
+
+ifeq ($(DEB_HOST_ARCH_CPU),sparc)
+DEB_CFLAGS_MAINT_APPEND += -DFORCE_64BIT_ALIGN
+endif
+
+# Reapply default strong optimizations unless noopt in DEB_BUILD_OPTIONS
+ifeq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
+DEB_CFLAGS_MAINT_STRIP = -O2
+DEB_CFLAGS_MAINT_APPEND += -O4 -fexpensive-optimizations -funroll-loops
+endif
+
+export DEB_CFLAGS_MAINT_APPEND
+
+%:
+	dh $@
+
+# TODO: stop suppress when understood how to tame dh_autoreconf
+override_dh_autoreconf:
+
+override_dh_auto_configure:
+	dh_auto_configure -- $(CONFIGURE_OPTS)
+
+override_dh_auto_build-arch:
+	dh_auto_build -- shared_library test
+
+override_dh_auto_build-indep:
+	dh_auto_build -- libsrtp2doc
+
+# Ensure test script is executable
+execute_before_dh_auto_test:
+	chmod +x test/rtpw_test.sh
+
+override_dh_auto_test-arch:
+	LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$(realpath .)" dh_auto_test -- runtest
+
+override_dh_auto_test-indep:
+
+override_dh_auto_install-indep:
+
+# Let d-shlibs calculate development package dependencies
+#  and handle shared library install
+execute_after_dh_install-arch:
+	d-shlibmove --commit \
+		--devunversioned \
+		--multiarch \
+		--movedev "debian/tmp/usr/include/*" usr/include/ \
+		--movedev "debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig/*" \
+			usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig \
+		debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/*.so
+
+override_dh_strip:
+	dh_strip --dbgsym-migration='libsrtp2-1-dbg (<< 2.5.0-1~)'
+
+override_dh_auto_clean:
+	dh_auto_clean -- superclean

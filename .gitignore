@@ -152,9 +152,15 @@ Thumbs.db
 .env
 *.local
 
+# Ditstribution
+dist/
+**/dist/
+
 # Agents
 AGENTS.md
 AGENT_PROGRESS.md
 BUILD_SYSTEM_UPDATES.md
 COMPLETION_ASSESSMENT.md
 SPHINX_SETUP_COMPLETE.md
+ULTIMATE_INSTALL_SCRIPT.md
+

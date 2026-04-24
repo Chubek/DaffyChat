@@ -1,137 +1,178 @@
 #!/bin/bash
 # DaffyChat post-installation script
-# Handles service setup, config deployment, and directory creation
+# Installs service files, config, directories.  Called by dpkg/rpm postinst
+# and can also be run manually.
+#
+# Env overrides:
+#   DAFFY_PREFIX         installation prefix  (default /usr/local)
+#   DAFFY_CONFIG_FORMAT  json | conf          (default json)
+#   DAFFY_CLIENT_ONLY    1 | 0                (default 0)
+#   DAFFY_PACK_FRONTEND  1 | 0 – if 1 also run install-frontend.sh (default 1)
 
 set -e
 
-# Detect installation paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PREFIX="${DAFFY_PREFIX:-/usr/local}"
 CONFIG_FORMAT="${DAFFY_CONFIG_FORMAT:-json}"
 CLIENT_ONLY="${DAFFY_CLIENT_ONLY:-0}"
+PACK_FRONTEND="${DAFFY_PACK_FRONTEND:-1}"
 
-# Source OS-specific paths
+# ---------------------------------------------------------------------------
+# Detect OS-specific paths via os-service.pl if available
+# ---------------------------------------------------------------------------
 if [ -x "$SCRIPT_DIR/os-service.pl" ]; then
     eval "$("$SCRIPT_DIR/os-service.pl" --prefix "$PREFIX" --config-format "$CONFIG_FORMAT" ${CLIENT_ONLY:+--client-only})"
 else
-    echo "Warning: os-service.pl not found, using defaults"
-    DAFFY_CONFIGDIR="${PREFIX}/etc/daffychat"
+    echo "Warning: os-service.pl not found – using hardcoded defaults"
+    DAFFY_CONFIGDIR="/etc/daffychat"
     DAFFY_SYSTEMDDIR="/etc/systemd/system"
     DAFFY_LOGDIR="/var/log/daffychat"
     DAFFY_RUNDIR="/var/run/daffychat"
     DAFFY_STATEDIR="/var/lib/daffychat"
+    DAFFY_DATADIR="${PREFIX}/share/daffychat"
+    DAFFY_DOCDIR="${PREFIX}/share/doc/daffychat"
+    DAFFY_CONFIGFILE="daffychat.${CONFIG_FORMAT}"
 fi
+
+# Package installations put data under /usr/share/daffychat, not prefix/share
+[ -d "/usr/share/daffychat" ] && DAFFY_DATADIR="/usr/share/daffychat"
 
 echo "DaffyChat Post-Installation"
 echo "============================"
-echo "Prefix: $PREFIX"
-echo "Config dir: $DAFFY_CONFIGDIR"
-echo "Client-only: $CLIENT_ONLY"
+echo "Prefix         : $PREFIX"
+echo "Data dir       : $DAFFY_DATADIR"
+echo "Config dir     : $DAFFY_CONFIGDIR"
+echo "Systemd dir    : $DAFFY_SYSTEMDDIR"
+echo "Client-only    : $CLIENT_ONLY"
+echo "Pack frontend  : $PACK_FRONTEND"
 echo ""
 
-# Create necessary directories
-create_dirs() {
-    local dirs=("$@")
-    for dir in "${dirs[@]}"; do
-        if [ -n "$dir" ] && [ ! -d "$dir" ]; then
-            echo "Creating directory: $dir"
-            mkdir -p "$dir" || {
-                echo "Warning: Failed to create $dir (may need sudo)"
-            }
+# ---------------------------------------------------------------------------
+# Helper: create a directory if it doesn't exist
+# ---------------------------------------------------------------------------
+ensure_dir() {
+    for dir in "$@"; do
+        [ -z "$dir" ] && continue
+        if [ ! -d "$dir" ]; then
+            echo "  mkdir $dir"
+            mkdir -p "$dir" || { echo "Warning: could not create $dir"; }
         fi
     done
 }
 
-# Server-side directories
+# ---------------------------------------------------------------------------
+# 1. Runtime directories (server only)
+# ---------------------------------------------------------------------------
 if [ "$CLIENT_ONLY" != "1" ]; then
-    create_dirs "$DAFFY_CONFIGDIR" "$DAFFY_LOGDIR" "$DAFFY_RUNDIR" "$DAFFY_STATEDIR"
-    
-    # Set permissions for server directories
-    if [ -d "$DAFFY_LOGDIR" ]; then
-        chmod 755 "$DAFFY_LOGDIR" 2>/dev/null || true
-    fi
-    if [ -d "$DAFFY_RUNDIR" ]; then
-        chmod 755 "$DAFFY_RUNDIR" 2>/dev/null || true
-    fi
-    if [ -d "$DAFFY_STATEDIR" ]; then
-        chmod 755 "$DAFFY_STATEDIR" 2>/dev/null || true
-    fi
+    ensure_dir "$DAFFY_CONFIGDIR" "$DAFFY_LOGDIR" "$DAFFY_RUNDIR" "$DAFFY_STATEDIR"
+    chmod 755 "$DAFFY_LOGDIR"  2>/dev/null || true
+    chmod 755 "$DAFFY_RUNDIR"  2>/dev/null || true
+    chmod 750 "$DAFFY_STATEDIR" 2>/dev/null || true
 fi
 
-# Install config file if it doesn't exist
+# ---------------------------------------------------------------------------
+# 2. Config file (server only, never overwrite existing config)
+# ---------------------------------------------------------------------------
 if [ "$CLIENT_ONLY" != "1" ] && [ -n "$DAFFY_CONFIGDIR" ]; then
     CONFIG_FILE="$DAFFY_CONFIGDIR/$DAFFY_CONFIGFILE"
     if [ ! -f "$CONFIG_FILE" ]; then
-        EXAMPLE_CONFIG="$DAFFY_DATADIR/config/daffychat.example.$CONFIG_FORMAT"
-        if [ -f "$EXAMPLE_CONFIG" ]; then
+        EXAMPLE="$DAFFY_DATADIR/config/daffychat.example.${CONFIG_FORMAT}"
+        if [ -f "$EXAMPLE" ]; then
             echo "Installing default config: $CONFIG_FILE"
-            cp "$EXAMPLE_CONFIG" "$CONFIG_FILE" || {
-                echo "Warning: Failed to install config (may need sudo)"
-            }
+            cp "$EXAMPLE" "$CONFIG_FILE"
+            chmod 640 "$CONFIG_FILE"
         else
-            echo "Warning: Example config not found at $EXAMPLE_CONFIG"
+            echo "Warning: example config not found at $EXAMPLE"
         fi
     else
-        echo "Config file already exists: $CONFIG_FILE"
+        echo "Config already present, skipping: $CONFIG_FILE"
     fi
 fi
 
-# Install systemd service
-if [ "$CLIENT_ONLY" != "1" ] && [ -n "$DAFFY_SYSTEMDDIR" ] && [ -d "$(dirname "$DAFFY_SYSTEMDDIR")" ]; then
-    SERVICE_FILE="$DAFFY_SYSTEMDDIR/daffydmd.service"
-    EXAMPLE_SERVICE="$DAFFY_DATADIR/scripts/daffydmd.service"
-    
-    if [ -f "$EXAMPLE_SERVICE" ]; then
-        if [ ! -f "$SERVICE_FILE" ]; then
-            echo "Installing systemd service: $SERVICE_FILE"
-            cp "$EXAMPLE_SERVICE" "$SERVICE_FILE" || {
-                echo "Warning: Failed to install systemd service (may need sudo)"
-            }
-            
-            # Reload systemd if possible
-            if command -v systemctl >/dev/null 2>&1; then
-                systemctl daemon-reload 2>/dev/null || {
-                    echo "Note: Run 'sudo systemctl daemon-reload' to load the service"
-                }
-            fi
-        else
-            echo "Systemd service already exists: $SERVICE_FILE"
+# ---------------------------------------------------------------------------
+# 3. systemd service files (server only)
+# ---------------------------------------------------------------------------
+install_service() {
+    local name="$1"
+    local src="$DAFFY_DATADIR/scripts/${name}"
+    local dst="$DAFFY_SYSTEMDDIR/${name}"
+
+    if [ ! -f "$src" ]; then
+        echo "Warning: service file not found: $src"
+        return
+    fi
+    if [ -f "$dst" ]; then
+        echo "Service already present, skipping: $dst"
+        return
+    fi
+    echo "Installing systemd service: $dst"
+    cp "$src" "$dst"
+    chmod 644 "$dst"
+}
+
+if [ "$CLIENT_ONLY" != "1" ] && [ -n "$DAFFY_SYSTEMDDIR" ]; then
+    ensure_dir "$DAFFY_SYSTEMDDIR"
+    install_service "daffydmd.service"
+    install_service "daffybackend.service"
+    install_service "daffysignaling.service"
+
+    if command -v systemctl >/dev/null 2>&1; then
+        echo "Reloading systemd daemon..."
+        systemctl daemon-reload 2>/dev/null \
+            || echo "Note: run 'sudo systemctl daemon-reload' to activate the new services"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Packed shared libraries (LINKING=PACK mode)
+# ---------------------------------------------------------------------------
+PACKED_LIBS_DIR="$DAFFY_DATADIR/lib"
+if [ -d "$PACKED_LIBS_DIR" ] && [ "$(ls -A "$PACKED_LIBS_DIR" 2>/dev/null)" ]; then
+    SYSTEM_LIBDIR="/usr/local/lib"
+    echo "Installing packed shared libraries from $PACKED_LIBS_DIR → $SYSTEM_LIBDIR"
+    ensure_dir "$SYSTEM_LIBDIR"
+    find "$PACKED_LIBS_DIR" -name "*.so*" | while read -r lib; do
+        dest="$SYSTEM_LIBDIR/$(basename "$lib")"
+        if [ ! -e "$dest" ]; then
+            echo "  install $(basename "$lib")"
+            cp "$lib" "$dest"
         fi
+    done
+    if command -v ldconfig >/dev/null 2>&1; then
+        echo "Running ldconfig..."
+        ldconfig "$SYSTEM_LIBDIR" 2>/dev/null || ldconfig 2>/dev/null || true
     fi
 fi
 
-# Print next steps
+# ---------------------------------------------------------------------------
+# 5. Frontend (gated on PACK_FRONTEND)
+# ---------------------------------------------------------------------------
+if [ "$PACK_FRONTEND" = "1" ]; then
+    FRONTEND_SCRIPT="$SCRIPT_DIR/install-frontend.sh"
+    if [ -x "$FRONTEND_SCRIPT" ]; then
+        echo "Installing frontend assets..."
+        bash "$FRONTEND_SCRIPT"
+    else
+        echo "Warning: install-frontend.sh not found or not executable"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 6. Summary
+# ---------------------------------------------------------------------------
 echo ""
 echo "Installation complete!"
 echo ""
-
 if [ "$CLIENT_ONLY" = "1" ]; then
-    echo "Client-side tools installed:"
-    echo "  - daffyscript (Daffyscript interpreter)"
-    echo ""
-    echo "Run 'daffyscript --help' to get started."
+    echo "  daffyscript is ready – run 'daffyscript --help' to get started."
 else
-    echo "Server-side components installed:"
-    echo "  - daffydmd (daemon manager)"
-    echo "  - daffy-backend (chat server)"
-    echo "  - daffy-signaling (signaling server)"
+    echo "  Binaries    : ${PREFIX}/bin/{daffy-backend,daffy-signaling,daffydmd}"
+    echo "  Config      : ${DAFFY_CONFIGDIR}/${DAFFY_CONFIGFILE}"
+    echo "  Services    : daffydmd  daffybackend  daffysignaling"
     echo ""
-    echo "Configuration:"
-    echo "  - Config file: $DAFFY_CONFIGDIR/$DAFFY_CONFIGFILE"
-    echo "  - Edit the config file to customize your installation"
-    echo ""
-    
-    if [ -n "$DAFFY_SYSTEMDDIR" ]; then
-        echo "To start DaffyChat as a service:"
-        echo "  sudo systemctl enable daffydmd"
-        echo "  sudo systemctl start daffydmd"
-        echo ""
-    fi
-    
-    echo "To run manually:"
-    echo "  daffydmd --config $DAFFY_CONFIGDIR/$DAFFY_CONFIGFILE"
-    echo ""
+    echo "  Quick start:"
+    echo "    sudo systemctl enable --now daffydmd daffybackend daffysignaling"
 fi
-
-echo "Documentation: $DAFFY_DOCDIR"
-echo "For more information, visit: https://github.com/Chubek/DaffyChat"
+echo ""
+echo "  Docs : $DAFFY_DOCDIR"
+echo "  Repo : https://github.com/Chubek/DaffyChat"

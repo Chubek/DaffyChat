@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+"""
+DaffyChat package artifact builder.
+
+New flags vs the original:
+  --linking    DYNAMIC | STATIC | PACK  (default DYNAMIC)
+               PACK: also collect vendored .so files from <build-dir> and
+               bundle them under usr/share/daffychat/lib.
+  --pack-frontend / --no-pack-frontend  (default: pack)
+               When --no-pack-frontend the frontend/ tree is omitted from
+               the package (useful for server-only packages).
+  --client-only
+               Only ship client-side binaries (daffyscript, dssl-* tools).
+               Package name gets a -client suffix.
+"""
 import argparse
 import bz2
 import gzip
@@ -9,52 +23,110 @@ import subprocess
 import tarfile
 import tempfile
 import time
-import zipfile
 import zlib
 
-BINARIES = [
+# ---------------------------------------------------------------------------
+# Server-side binaries
+# ---------------------------------------------------------------------------
+SERVER_BINARIES = [
+    ("daffydmd",      "usr/bin/daffydmd"),
     ("daffy-backend", "usr/bin/daffy-backend"),
     ("daffy-signaling", "usr/bin/daffy-signaling"),
+]
+
+# ---------------------------------------------------------------------------
+# Client-side binaries (always included unless --client-only, in which case
+# these are the ONLY binaries)
+# ---------------------------------------------------------------------------
+CLIENT_BINARIES = [
     ("dssl-bindgen", "usr/bin/dssl-bindgen"),
     ("dssl-docstrip", "usr/bin/dssl-docstrip"),
     ("dssl-docgen", "usr/bin/dssl-docgen"),
     ("daffyscript", "usr/bin/daffyscript"),
-    ("libdaffy_core.a", "usr/lib/libdaffy_core.a"),
 ]
 
-DATA_FILES = [
-    ("config/daffychat.example.json", "usr/share/daffychat/config/daffychat.example.json"),
-    ("config/daffychat.example.json", "etc/daffychat/daffychat.json"),
-    ("scripts/daffydmd.service", "usr/share/daffychat/scripts/daffydmd.service"),
-    ("frontend/index.html", "usr/share/daffychat/frontend/index.html"),
-    ("frontend/room.html", "usr/share/daffychat/frontend/room.html"),
-    ("frontend/guide.html", "usr/share/daffychat/frontend/guide.html"),
-    ("frontend/dynerror.html", "usr/share/daffychat/frontend/dynerror.html"),
-    ("frontend/bridge.js", "usr/share/daffychat/frontend/bridge.js"),
-    ("frontend/app/styles/daffy.css", "usr/share/daffychat/frontend/app/styles/daffy.css"),
-    ("frontend/app/state/store.js", "usr/share/daffychat/frontend/app/state/store.js"),
-    ("frontend/app/api/signaling.js", "usr/share/daffychat/frontend/app/api/signaling.js"),
-    ("frontend/app/hooks/bridge-hooks.js", "usr/share/daffychat/frontend/app/hooks/bridge-hooks.js"),
-    ("frontend/app/components/message-renderer.js", "usr/share/daffychat/frontend/app/components/message-renderer.js"),
-    ("frontend/app/components/theme-toggle.js", "usr/share/daffychat/frontend/app/components/theme-toggle.js"),
-    ("frontend/lib/animate.min.css", "usr/share/daffychat/frontend/lib/animate.min.css"),
-    ("frontend/lib/quote.js", "usr/share/daffychat/frontend/lib/quote.js"),
-    ("frontend/resources/boxicons.min.css", "usr/share/daffychat/frontend/resources/boxicons.min.css"),
-    ("frontend/resources/box-icons.list", "usr/share/daffychat/frontend/resources/box-icons.list"),
-    ("frontend/resources/quotes.json", "usr/share/daffychat/frontend/resources/quotes.json"),
-    ("frontend/resources/error-messages.json", "usr/share/daffychat/frontend/resources/error-messages.json"),
-    ("scripts/os-service.pl", "usr/share/daffychat/scripts/os-service.pl"),
-    ("scripts/post-install.sh", "usr/share/daffychat/scripts/post-install.sh"),
-    ("README.md", "usr/share/daffychat/docs/README.md"),
-    ("INSTALL.md", "usr/share/daffychat/docs/INSTALL.md"),
-    ("GUIDE.md", "usr/share/daffychat/docs/GUIDE.md"),
-    ("DEPLOY.md", "usr/share/daffychat/docs/DEPLOY.md"),
-    ("EXTENSIBILITY.md", "usr/share/daffychat/docs/EXTENSIBILITY.md"),
-    ("RECIPES.md", "usr/share/daffychat/docs/RECIPES.md"),
+# ---------------------------------------------------------------------------
+# Data files that are always included
+# ---------------------------------------------------------------------------
+COMMON_DATA_FILES = [
+    # Config examples
+    ("config/daffychat.example.json",
+     "usr/share/daffychat/config/daffychat.example.json"),
+    # Scripts
+    ("scripts/os-service.pl",       "usr/share/daffychat/scripts/os-service.pl"),
+    ("scripts/post-install.sh",     "usr/share/daffychat/scripts/post-install.sh"),
+    ("scripts/linking-service.sh",  "usr/share/daffychat/scripts/linking-service.sh"),
+    ("scripts/install-frontend.sh", "usr/share/daffychat/scripts/install-frontend.sh"),
+    # Docs
+    ("README.md",       "usr/share/daffychat/docs/README.md"),
+    ("INSTALL.md",      "usr/share/daffychat/docs/INSTALL.md"),
+    ("GUIDE.md",        "usr/share/daffychat/docs/GUIDE.md"),
+    ("DEPLOY.md",       "usr/share/daffychat/docs/DEPLOY.md"),
+    ("EXTENSIBILITY.md","usr/share/daffychat/docs/EXTENSIBILITY.md"),
+    ("RECIPES.md",      "usr/share/daffychat/docs/RECIPES.md"),
 ]
 
-DATA_DIRS = [
-    ("stdext", "usr/share/daffychat/stdext"),
+# ---------------------------------------------------------------------------
+# Server-only data files
+# ---------------------------------------------------------------------------
+SERVER_DATA_FILES = [
+    ("scripts/daffydmd.service",
+     "usr/share/daffychat/scripts/daffydmd.service"),
+    ("scripts/daffybackend.service",
+     "usr/share/daffychat/scripts/daffybackend.service"),
+    ("scripts/daffysignaling.service",
+     "usr/share/daffychat/scripts/daffysignaling.service"),
+    ("config/daffychat.example.json",
+     "etc/daffychat/daffychat.json"),
+]
+
+# ---------------------------------------------------------------------------
+# Frontend assets (omitted when --no-pack-frontend)
+# ---------------------------------------------------------------------------
+FRONTEND_FILES = [
+    ("frontend/index.html",   "usr/share/daffychat/frontend/index.html"),
+    ("frontend/room.html",    "usr/share/daffychat/frontend/room.html"),
+    ("frontend/guide.html",   "usr/share/daffychat/frontend/guide.html"),
+    ("frontend/dynerror.html","usr/share/daffychat/frontend/dynerror.html"),
+    ("frontend/bridge.js",    "usr/share/daffychat/frontend/bridge.js"),
+    ("frontend/app/styles/daffy.css",
+     "usr/share/daffychat/frontend/app/styles/daffy.css"),
+    ("frontend/app/state/store.js",
+     "usr/share/daffychat/frontend/app/state/store.js"),
+    ("frontend/app/api/signaling.js",
+     "usr/share/daffychat/frontend/app/api/signaling.js"),
+    ("frontend/app/api/extension-manager.js",
+     "usr/share/daffychat/frontend/app/api/extension-manager.js"),
+    ("frontend/app/hooks/bridge-hooks.js",
+     "usr/share/daffychat/frontend/app/hooks/bridge-hooks.js"),
+    ("frontend/app/components/message-renderer.js",
+     "usr/share/daffychat/frontend/app/components/message-renderer.js"),
+    ("frontend/app/components/theme-toggle.js",
+     "usr/share/daffychat/frontend/app/components/theme-toggle.js"),
+    ("frontend/app/components/extension-panel.js",
+     "usr/share/daffychat/frontend/app/components/extension-panel.js"),
+    ("frontend/lib/animate.min.css",
+     "usr/share/daffychat/frontend/lib/animate.min.css"),
+    ("frontend/lib/quote.js",
+     "usr/share/daffychat/frontend/lib/quote.js"),
+    ("frontend/lib/wasm-runtime.js",
+     "usr/share/daffychat/frontend/lib/wasm-runtime.js"),
+    ("frontend/lib/alpine.js",
+     "usr/share/daffychat/frontend/lib/alpine.js"),
+    ("frontend/lib/markdown-it.min.js",
+     "usr/share/daffychat/frontend/lib/markdown-it.min.js"),
+    ("frontend/resources/boxicons.min.css",
+     "usr/share/daffychat/frontend/resources/boxicons.min.css"),
+    ("frontend/resources/box-icons.list",
+     "usr/share/daffychat/frontend/resources/box-icons.list"),
+    ("frontend/resources/quotes.json",
+     "usr/share/daffychat/frontend/resources/quotes.json"),
+    ("frontend/resources/error-messages.json",
+     "usr/share/daffychat/frontend/resources/error-messages.json"),
+]
+
+COMMON_DATA_DIRS = [
+    ("stdext",       "usr/share/daffychat/stdext"),
 ]
 
 
@@ -67,6 +139,15 @@ def parse_args():
     parser.add_argument("--version", required=True)
     parser.add_argument("--release", default="1")
     parser.add_argument("--stamp")
+    parser.add_argument("--linking", choices=["DYNAMIC", "STATIC", "PACK"],
+                        default="DYNAMIC",
+                        help="Linking mode used at build time (default: DYNAMIC)")
+    parser.add_argument("--pack-frontend", action="store_true", default=True,
+                        help="Bundle frontend assets in the package (default: on)")
+    parser.add_argument("--no-pack-frontend", action="store_false", dest="pack_frontend",
+                        help="Exclude frontend assets from the package")
+    parser.add_argument("--client-only", action="store_true", default=False,
+                        help="Build a client-only package (daffyscript + tools)")
     return parser.parse_args()
 
 
@@ -83,42 +164,99 @@ def detect_arch():
     return {"native": machine, "deb": deb_map.get(machine, machine), "rpm": machine, "pacman": machine}
 
 
-def install_tree(source_dir, build_dir, stage_dir):
-    for source_name, destination in BINARIES:
-        source_path = pathlib.Path(build_dir) / source_name
-        if not source_path.exists():
-            raise SystemExit(f"expected build output is missing: {source_path}")
-        destination_path = pathlib.Path(stage_dir) / destination
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, destination_path)
+def _copy_file(src, dst, *, required=True):
+    """Copy src → dst; if src is missing and required=True, raises SystemExit."""
+    if not src.exists():
+        if required:
+            raise SystemExit(f"expected source asset is missing: {src}")
+        return  # optional file – silently skip
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
 
-    confuse_env = os.environ.get("DAFFYCHAT_CONFIG_CONFUSE")
-    json_env = os.environ.get("DAFFYCHAT_CONFIG_JSON", "1")
 
-    for source_name, destination in DATA_FILES:
-        if destination.endswith("etc/daffychat/daffychat.json") and confuse_env and not json_env:
-            continue
-        source_path = pathlib.Path(source_dir) / source_name
-        if not source_path.exists():
-            raise SystemExit(f"expected source asset is missing: {source_path}")
-        destination_path = pathlib.Path(stage_dir) / destination
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, destination_path)
+def install_tree(source_dir, build_dir, stage_dir, *,
+                 linking="DYNAMIC", pack_frontend=True, client_only=False):
+    source_dir = pathlib.Path(source_dir)
+    build_dir  = pathlib.Path(build_dir)
+    stage_dir  = pathlib.Path(stage_dir)
 
-    confuse_example = pathlib.Path(source_dir) / "config/daffychat.example.conf"
-    if confuse_env and confuse_example.exists():
-        destination_path = pathlib.Path(stage_dir) / "etc/daffychat/daffychat.conf"
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(confuse_example, destination_path)
+    # -- Binaries -----------------------------------------------------------
+    binaries = CLIENT_BINARIES if client_only else SERVER_BINARIES + CLIENT_BINARIES
+    for src_name, dst_rel in binaries:
+        src = build_dir / src_name
+        _copy_file(src, stage_dir / dst_rel)
+        # Make executables actually executable
+        (stage_dir / dst_rel).chmod(0o755)
 
-    for source_name, destination in DATA_DIRS:
-        source_path = pathlib.Path(source_dir) / source_name
-        if not source_path.exists():
-            raise SystemExit(f"expected source directory is missing: {source_path}")
-        destination_path = pathlib.Path(stage_dir) / destination
-        if destination_path.exists():
-            shutil.rmtree(destination_path)
-        shutil.copytree(source_path, destination_path)
+    # -- Common data files --------------------------------------------------
+    for src_rel, dst_rel in COMMON_DATA_FILES:
+        src = source_dir / src_rel
+        _copy_file(src, stage_dir / dst_rel, required=False)
+        # Mark shell scripts executable
+        if dst_rel.endswith(".sh") or dst_rel.endswith(".pl"):
+            dst = stage_dir / dst_rel
+            if dst.exists():
+                dst.chmod(0o755)
+
+    # -- Server-only data files ---------------------------------------------
+    if not client_only:
+        config_format = os.environ.get("DAFFY_CONFIG_FORMAT", "json").lower()
+        for src_rel, dst_rel in SERVER_DATA_FILES:
+            # Skip the wrong config format's entry
+            if dst_rel.endswith("daffychat.json") and config_format == "conf":
+                continue
+            src = source_dir / src_rel
+            _copy_file(src, stage_dir / dst_rel, required=False)
+
+        # Optional conf-format config
+        if config_format == "conf":
+            conf_src = source_dir / "config/daffychat.example.conf"
+            if conf_src.exists():
+                dst = stage_dir / "etc/daffychat/daffychat.conf"
+                _copy_file(conf_src, dst)
+
+    # -- Frontend assets ----------------------------------------------------
+    if pack_frontend:
+        for src_rel, dst_rel in FRONTEND_FILES:
+            src = source_dir / src_rel
+            _copy_file(src, stage_dir / dst_rel, required=False)
+
+    # -- Data directories ---------------------------------------------------
+    for src_rel, dst_rel in COMMON_DATA_DIRS:
+        src = source_dir / src_rel
+        if not src.exists():
+            raise SystemExit(f"expected source directory is missing: {src}")
+        dst = stage_dir / dst_rel
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(src, dst)
+
+    # -- PACK mode: collect vendored shared libraries -----------------------
+    if linking == "PACK":
+        pack_lib_dst = stage_dir / "usr/share/daffychat/lib"
+        pack_lib_dst.mkdir(parents=True, exist_ok=True)
+        # Gather all .so* files produced under third_party build outputs
+        tp_build = build_dir / "third_party"
+        patterns = ["libnng.so*", "libnng-*.so*"]
+        found = False
+        for pat in patterns:
+            for lib in tp_build.rglob(pat) if tp_build.exists() else []:
+                dst = pack_lib_dst / lib.name
+                if not dst.exists():
+                    shutil.copy2(lib, dst)
+                    found = True
+        if not found:
+            # Fallback: search anywhere under build_dir
+            for lib in build_dir.rglob("libnng.so*"):
+                dst = pack_lib_dst / lib.name
+                if not dst.exists():
+                    shutil.copy2(lib, dst)
+
+        # Write ld.so.conf.d snippet
+        ldconf_dir = stage_dir / "etc/ld.so.conf.d"
+        ldconf_dir.mkdir(parents=True, exist_ok=True)
+        (ldconf_dir / "daffychat.conf").write_text(
+            "/usr/share/daffychat/lib\n", encoding="utf-8")
 
 
 def packaged_paths(stage_dir):
@@ -132,7 +270,54 @@ def packaged_paths(stage_dir):
     return paths
 
 
-def build_deb(stage_dir, output_dir, version, release, arch):
+def _write_postinst(control_dir: pathlib.Path, *,
+                    pack_frontend: bool, client_only: bool, linking: str):
+    """Write DEBIAN/postinst that runs post-install.sh and (if PACK) ldconfig."""
+    lines = [
+        "#!/bin/sh",
+        "set -e",
+        "",
+        "DAFFY_DATA=/usr/share/daffychat",
+        "DAFFY_SCRIPTS=$DAFFY_DATA/scripts",
+        "",
+    ]
+
+    lines += [
+        "# Run DaffyChat post-install helper",
+        'DAFFY_PREFIX=/usr/local \\',
+        f'DAFFY_CLIENT_ONLY={"1" if client_only else "0"} \\',
+        f'DAFFY_PACK_FRONTEND={"1" if pack_frontend else "0"} \\',
+        '  sh "$DAFFY_SCRIPTS/post-install.sh"',
+        "",
+    ]
+
+    if linking == "PACK":
+        lines += [
+            "# Refresh shared-library cache for packed vendored libs",
+            "ldconfig 2>/dev/null || true",
+            "",
+        ]
+
+    lines.append("")
+    postinst_path = control_dir / "postinst"
+    postinst_path.write_text("\n".join(lines), encoding="utf-8")
+    postinst_path.chmod(0o755)
+
+
+def _write_conffiles(control_dir: pathlib.Path, stage_dir: pathlib.Path):
+    """Write DEBIAN/conffiles listing every file under etc/."""
+    conf_files = []
+    for root, _, files in os.walk(pathlib.Path(stage_dir) / "etc"):
+        for fname in files:
+            rel = pathlib.Path(root) / fname
+            conf_files.append("/" + str(rel.relative_to(stage_dir)))
+    if conf_files:
+        (control_dir / "conffiles").write_text(
+            "\n".join(sorted(conf_files)) + "\n", encoding="utf-8")
+
+
+def build_deb(stage_dir, output_dir, version, release, arch, *,
+              linking="DYNAMIC", pack_frontend=True, client_only=False):
     dpkg_deb = require_tool("dpkg-deb")
     control_dir = pathlib.Path(stage_dir) / "DEBIAN"
     control_dir.mkdir(parents=True, exist_ok=True)
@@ -142,18 +327,31 @@ def build_deb(stage_dir, output_dir, version, release, arch):
             path = pathlib.Path(root) / filename
             if "DEBIAN" not in path.parts:
                 installed_size_kb += (path.stat().st_size + 1023) // 1024
+
+    pkg_name = "daffychat-client" if client_only else "daffychat-server"
     control_dir.joinpath("control").write_text("\n".join([
-        "Package: daffychat",
+        f"Package: {pkg_name}",
         f"Version: {version}-{release}",
         "Section: net",
         "Priority: optional",
         f"Architecture: {arch['deb']}",
         "Maintainer: DaffyChat <maintainers@daffychat.local>",
         f"Installed-Size: {max(installed_size_kb, 1)}",
-        "Description: Native-first peer-to-peer voice chat bootstrap package",
+        "Homepage: https://github.com/Chubek/DaffyChat",
+        "Description: Native-first peer-to-peer voice chat" +
+            (" (client)" if client_only else " (server)"),
         "",
     ]), encoding="utf-8")
-    output_path = pathlib.Path(output_dir) / f"daffychat_{version}-{release}_{arch['deb']}.deb"
+
+    _write_postinst(control_dir,
+                    pack_frontend=pack_frontend,
+                    client_only=client_only,
+                    linking=linking)
+    _write_conffiles(control_dir, stage_dir)
+
+    suffix = "client" if client_only else "server"
+    output_path = pathlib.Path(output_dir) / \
+        f"daffychat-{suffix}_{version}-{release}_{arch['deb']}.deb"
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
     subprocess.run([dpkg_deb, "--build", "--root-owner-group", stage_dir, str(output_path)], check=True)
     return output_path
@@ -270,15 +468,24 @@ def build_single_file_archive(stage_dir, output_dir, version, release, mode):
 
 def main():
     args = parse_args()
+    linking      = args.linking
+    pack_frontend = args.pack_frontend
+    client_only  = args.client_only
     stamp = args.stamp or time.strftime("%Y%m%d%H%M%S")
     version = args.version
     release = args.release
     arch = detect_arch()
     with tempfile.TemporaryDirectory(prefix=f"daffy-stage-{stamp}-") as stage_dir:
-        install_tree(args.source_dir, args.build_dir, stage_dir)
+        install_tree(args.source_dir, args.build_dir, stage_dir,
+                     linking=linking,
+                     pack_frontend=pack_frontend,
+                     client_only=client_only)
         fmt = "tgz" if args.format == "tarball" else args.format
         if fmt == "deb":
-            output = build_deb(stage_dir, args.output_dir, version, release, arch)
+            output = build_deb(stage_dir, args.output_dir, version, release, arch,
+                               linking=linking,
+                               pack_frontend=pack_frontend,
+                               client_only=client_only)
         elif fmt == "rpm":
             output = build_rpm(stage_dir, args.output_dir, version, release, arch)
         elif fmt == "pacman":
