@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # install-frontend.sh – deploy DaffyChat frontend assets to the web root
 #
 # Called by post-install.sh when PACK_FRONTEND=1 (the default).

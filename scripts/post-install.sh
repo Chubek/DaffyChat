@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # DaffyChat post-installation script
 # Installs service files, config, directories.  Called by dpkg/rpm postinst
 # and can also be run manually.
@@ -12,7 +12,13 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# POSIX-compatible way to get script directory
+if [ -n "${BASH_SOURCE:-}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
+
 PREFIX="${DAFFY_PREFIX:-/usr/local}"
 CONFIG_FORMAT="${DAFFY_CONFIG_FORMAT:-json}"
 CLIENT_ONLY="${DAFFY_CLIENT_ONLY:-0}"
@@ -158,7 +164,7 @@ if [ "$PACK_FRONTEND" = "1" ]; then
     FRONTEND_SCRIPT="$SCRIPT_DIR/install-frontend.sh"
     if [ -x "$FRONTEND_SCRIPT" ]; then
         echo "Installing frontend assets..."
-        bash "$FRONTEND_SCRIPT"
+        sh "$FRONTEND_SCRIPT"
     else
         echo "Warning: install-frontend.sh not found or not executable"
     fi
