@@ -1,0 +1,200 @@
+{
+  "400": {
+    "title": "Bad Request",
+    "subtitle": "The server couldn't understand that one.",
+    "message": "Your request was malformed or missing required fields. Double-check the URL and any parameters you sent.",
+    "hint": "Try refreshing the page or going back and trying again.",
+    "emoji": "🤔",
+    "animation": "animate__wobble",
+    "icon": "bxs-error-circle",
+    "color": "#f59e0b",
+    "visual": "spinning-gears"
+  },
+  "401": {
+    "title": "Unauthorized",
+    "subtitle": "Who goes there?",
+    "message": "You need to be authenticated to access this resource. Please log in and try again.",
+    "hint": "Make sure you're logged in. If you just logged out, your session may have expired.",
+    "emoji": "🔐",
+    "animation": "animate__shakeX",
+    "icon": "bxs-lock",
+    "color": "#ef4444",
+    "visual": "locked-door"
+  },
+  "403": {
+    "title": "Forbidden",
+    "subtitle": "You shall not pass.",
+    "message": "You're authenticated, but you don't have permission to access this resource. This area is off-limits.",
+    "hint": "If you believe this is a mistake, contact the room host or administrator.",
+    "emoji": "🚫",
+    "animation": "animate__headShake",
+    "icon": "bxs-shield-x",
+    "color": "#dc2626",
+    "visual": "forbidden-door"
+  },
+  "404": {
+    "title": "Not Found",
+    "subtitle": "This room has gone quiet.",
+    "message": "The page, room, or resource you're looking for doesn't exist — or has already evaporated into thin air.",
+    "hint": "Rooms in DaffyChat are ephemeral. If everyone left, the room is gone. Try creating a new one.",
+    "emoji": "🌸",
+    "animation": "animate__fadeOutDown",
+    "icon": "bxs-ghost",
+    "color": "#f59e0b",
+    "visual": "falling-petals"
+  },
+  "405": {
+    "title": "Method Not Allowed",
+    "subtitle": "That's not how this works.",
+    "message": "The HTTP method you used (GET, POST, etc.) is not allowed for this endpoint.",
+    "hint": "This is usually a developer issue. If you're a user, try reloading the page.",
+    "emoji": "🚷",
+    "animation": "animate__bounceIn",
+    "icon": "bxs-error",
+    "color": "#f59e0b",
+    "visual": "wrong-turn"
+  },
+  "408": {
+    "title": "Request Timeout",
+    "subtitle": "You took too long.",
+    "message": "The server gave up waiting for your request to complete. The connection timed out.",
+    "hint": "Check your internet connection and try again. If the problem persists, the server may be under load.",
+    "emoji": "⌛",
+    "animation": "animate__pulse",
+    "icon": "bxs-hourglass",
+    "color": "#f59e0b",
+    "visual": "hourglass"
+  },
+  "409": {
+    "title": "Conflict",
+    "subtitle": "Something's already there.",
+    "message": "The request conflicts with the current state of the server. Perhaps this room ID already exists.",
+    "hint": "Try a different room name or ID, or refresh the page to get the current state.",
+    "emoji": "💥",
+    "animation": "animate__tada",
+    "icon": "bxs-traffic",
+    "color": "#f97316",
+    "visual": "collision"
+  },
+  "410": {
+    "title": "Gone",
+    "subtitle": "It was here once.",
+    "message": "This resource existed, but has been permanently removed. Unlike 404, we know it was here — and now it's gone forever.",
+    "hint": "This room has been permanently deleted. There's no coming back from this one.",
+    "emoji": "🌫️",
+    "animation": "animate__fadeOut",
+    "icon": "bxs-cloud",
+    "color": "#9ca3af",
+    "visual": "fading-smoke"
+  },
+  "413": {
+    "title": "Payload Too Large",
+    "subtitle": "That's a big file.",
+    "message": "The data you're trying to send exceeds the server's size limit.",
+    "hint": "Try splitting your upload into smaller parts, or compress the file before sending.",
+    "emoji": "📦",
+    "animation": "animate__bounceIn",
+    "icon": "bxs-box",
+    "color": "#f97316",
+    "visual": "heavy-box"
+  },
+  "418": {
+    "title": "I'm a Teapot",
+    "subtitle": "Short and stout.",
+    "message": "The server refuses to brew coffee because it is, permanently, a teapot. This is a classic RFC 2324 joke.",
+    "hint": "You've found the Easter egg. 🫖 Try asking for tea instead.",
+    "emoji": "🫖",
+    "animation": "animate__rotateIn",
+    "icon": "bxs-coffee",
+    "color": "#84cc16",
+    "visual": "teapot"
+  },
+  "422": {
+    "title": "Unprocessable Entity",
+    "subtitle": "We understand, but we can't do it.",
+    "message": "The request was well-formed, but the server couldn't process the contained instructions due to semantic errors.",
+    "hint": "Check that all required fields are valid and properly formatted.",
+    "emoji": "🧩",
+    "animation": "animate__jello",
+    "icon": "bxs-error-alt",
+    "color": "#f59e0b",
+    "visual": "puzzle-pieces"
+  },
+  "429": {
+    "title": "Too Many Requests",
+    "subtitle": "Slow down there.",
+    "message": "You've sent too many requests in a short period. The server is rate-limiting you.",
+    "hint": "Wait a moment and try again. DaffyChat servers are small and friendly — be gentle with them.",
+    "emoji": "🌪️",
+    "animation": "animate__spin",
+    "icon": "bxs-zap",
+    "color": "#f59e0b",
+    "visual": "spinning-vortex"
+  },
+  "500": {
+    "title": "Internal Server Error",
+    "subtitle": "Something went wrong on our end.",
+    "message": "The server encountered an unexpected condition that prevented it from fulfilling your request. This is our fault, not yours.",
+    "hint": "Try refreshing in a few moments. If the problem persists, the backend daemon may need to be restarted.",
+    "emoji": "💀",
+    "animation": "animate__shakeY",
+    "icon": "bxs-error-circle",
+    "color": "#ef4444",
+    "visual": "crashing-server"
+  },
+  "501": {
+    "title": "Not Implemented",
+    "subtitle": "Coming soon™.",
+    "message": "The server does not support the functionality required to fulfill your request. This feature hasn't been built yet.",
+    "hint": "Check back later — DaffyChat is actively developed. Maybe open a GitHub issue!",
+    "emoji": "🚧",
+    "animation": "animate__fadeInDown",
+    "icon": "bxs-wrench",
+    "color": "#f59e0b",
+    "visual": "under-construction"
+  },
+  "502": {
+    "title": "Bad Gateway",
+    "subtitle": "The middleman dropped the ball.",
+    "message": "A server acting as a gateway received an invalid response from an upstream server.",
+    "hint": "This is usually temporary. Wait a moment and refresh. The reverse proxy may be misconfigured.",
+    "emoji": "📡",
+    "animation": "animate__wobble",
+    "icon": "bxs-network-chart",
+    "color": "#ef4444",
+    "visual": "broken-signal"
+  },
+  "503": {
+    "title": "Service Unavailable",
+    "subtitle": "Be right back.",
+    "message": "The server is temporarily unable to handle the request due to maintenance or being overloaded.",
+    "hint": "DaffyChat may be restarting a service. Give it a moment and refresh. The daemon manager is on it.",
+    "emoji": "🔧",
+    "animation": "animate__flash",
+    "icon": "bxs-cog",
+    "color": "#f97316",
+    "visual": "maintenance"
+  },
+  "504": {
+    "title": "Gateway Timeout",
+    "subtitle": "Upstream took too long.",
+    "message": "A server acting as a gateway did not receive a timely response from an upstream server.",
+    "hint": "The backend service may be overloaded or unreachable. Try again in a moment.",
+    "emoji": "⏱️",
+    "animation": "animate__pulse",
+    "icon": "bxs-time-five",
+    "color": "#ef4444",
+    "visual": "timeout-clock"
+  },
+  "default": {
+    "title": "Something Went Wrong",
+    "subtitle": "An unexpected error occurred.",
+    "message": "DaffyChat encountered an error it didn't expect. The server returned a status code that has no specific page.",
+    "hint": "Try going back to the home page. If the problem repeats, check that the backend services are running.",
+    "emoji": "🌼",
+    "animation": "animate__headShake",
+    "icon": "bxs-error",
+    "color": "#f59e0b",
+    "visual": "generic"
+  }
+}
