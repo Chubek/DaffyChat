@@ -1,0 +1,41 @@
+/// Sample echo service used to exercise the DSSL -> generated C++ -> runtime path.
+///
+/// This is the simplest possible DSSL service, demonstrating:
+/// - Basic service declaration with version
+/// - Struct type definitions for request/response
+/// - Single RPC method with multiple parameters
+/// - Primitive types (string, bool)
+///
+/// Use this as a template for simple request/response services.
+service echo 1.0.0;
+
+/// Request payload accepted by the sample service.
+///
+/// Contains the message to echo and the sender's identifier.
+struct EchoRequest {
+    message: string;  /// The message text to echo back
+    sender: string;   /// Identifier of the message sender
+}
+
+/// Reply payload returned by the sample service.
+///
+/// Includes the echoed message, sender info, and service metadata.
+struct EchoReply {
+    message: string;       /// The echoed message text
+    sender: string;        /// The original sender identifier
+    service_name: string;  /// Name of the service that processed the request
+    echoed: bool;          /// Flag indicating successful echo operation
+}
+
+/// Echo a chat message back to the caller.
+///
+/// This RPC accepts a message and sender identifier, then returns
+/// an EchoReply containing the same information plus service metadata.
+///
+/// Parameters:
+///   message - The text message to echo
+///   sender - Identifier of the message sender
+///
+/// Returns:
+///   EchoReply with echoed message and metadata
+rpc Echo(message: string, sender: string) returns EchoReply;

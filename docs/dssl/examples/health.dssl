@@ -1,0 +1,29 @@
+/// Health check service pattern.
+///
+/// This service demonstrates:
+/// - Minimal service with no request parameters
+/// - Simple status reporting
+/// - Common pattern for service health monitoring
+///
+/// Use this as a template for health check endpoints.
+service health 1.0.0;
+
+/// Health status response.
+///
+/// Contains service health information and operational metrics.
+struct HealthStatus {
+    healthy: bool;           /// Overall health status
+    service_name: string;    /// Name of the service
+    version: string;         /// Service version
+    uptime_seconds: number;  /// Service uptime in seconds
+    timestamp: string;       /// ISO 8601 timestamp of health check
+}
+
+/// Check service health and return status.
+///
+/// This RPC performs a health check and returns operational metrics.
+/// It should be called periodically by monitoring systems.
+///
+/// Returns:
+///   HealthStatus with current service state
+rpc Check() returns HealthStatus;

@@ -1,0 +1,52 @@
+/// Sample multi-RPC room operations service used to exercise generated dispatch.
+///
+/// This service demonstrates:
+/// - Multiple RPC methods in a single service
+/// - Automatic method dispatch based on JSON-RPC 'method' field
+/// - Consistent response structure across methods
+/// - Action-based naming conventions
+///
+/// Use this as a template for services with multiple related operations.
+service roomops 1.0.0;
+
+/// Reply payload returned when a user joins a room.
+///
+/// Contains the user identifier, action performed, and service metadata.
+struct JoinReply {
+    user: string;          /// Identifier of the user who joined
+    action: string;        /// Action performed (always "join")
+    service_name: string;  /// Name of the service that processed the request
+}
+
+/// Reply payload returned when a user leaves a room.
+///
+/// Contains the user identifier, action performed, and service metadata.
+struct LeaveReply {
+    user: string;          /// Identifier of the user who left
+    action: string;        /// Action performed (always "leave")
+    service_name: string;  /// Name of the service that processed the request
+}
+
+/// Join a room.
+///
+/// Registers a user as a participant in the room. The service
+/// handles session creation and event subscription.
+///
+/// Parameters:
+///   user - Identifier of the user joining the room
+///
+/// Returns:
+///   JoinReply with user info and action confirmation
+rpc Join(user: string) returns JoinReply;
+
+/// Leave a room.
+///
+/// Removes a user from the room's participant list. The service
+/// handles session cleanup and event unsubscription.
+///
+/// Parameters:
+///   user - Identifier of the user leaving the room
+///
+/// Returns:
+///   LeaveReply with user info and action confirmation
+rpc Leave(user: string) returns LeaveReply;
