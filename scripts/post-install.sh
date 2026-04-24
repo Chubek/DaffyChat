@@ -8,6 +8,7 @@
 #   DAFFY_CONFIG_FORMAT  json | conf          (default json)
 #   DAFFY_CLIENT_ONLY    1 | 0                (default 0)
 #   DAFFY_PACK_FRONTEND  1 | 0 – if 1 also run install-frontend.sh (default 1)
+#   DAFFY_INSTALL_STDEXT 1 | 0 – if 1 also run stdext-helper.sh (default 0)
 
 set -e
 
@@ -16,12 +17,17 @@ PREFIX="${DAFFY_PREFIX:-/usr/local}"
 CONFIG_FORMAT="${DAFFY_CONFIG_FORMAT:-json}"
 CLIENT_ONLY="${DAFFY_CLIENT_ONLY:-0}"
 PACK_FRONTEND="${DAFFY_PACK_FRONTEND:-1}"
+INSTALL_STDEXT="${DAFFY_INSTALL_STDEXT:-0}"
 
 # ---------------------------------------------------------------------------
 # Detect OS-specific paths via os-service.pl if available
 # ---------------------------------------------------------------------------
 if [ -x "$SCRIPT_DIR/os-service.pl" ]; then
-    eval "$("$SCRIPT_DIR/os-service.pl" --prefix "$PREFIX" --config-format "$CONFIG_FORMAT" ${CLIENT_ONLY:+--client-only})"
+    if [ "$CLIENT_ONLY" = "1" ]; then
+        eval "$("$SCRIPT_DIR/os-service.pl" --prefix "$PREFIX" --config-format "$CONFIG_FORMAT" --client-only)"
+    else
+        eval "$("$SCRIPT_DIR/os-service.pl" --prefix "$PREFIX" --config-format "$CONFIG_FORMAT")"
+    fi
 else
     echo "Warning: os-service.pl not found – using hardcoded defaults"
     DAFFY_CONFIGDIR="/etc/daffychat"
@@ -45,6 +51,7 @@ echo "Config dir     : $DAFFY_CONFIGDIR"
 echo "Systemd dir    : $DAFFY_SYSTEMDDIR"
 echo "Client-only    : $CLIENT_ONLY"
 echo "Pack frontend  : $PACK_FRONTEND"
+echo "Install stdext : $INSTALL_STDEXT"
 echo ""
 
 # ---------------------------------------------------------------------------
@@ -158,7 +165,20 @@ if [ "$PACK_FRONTEND" = "1" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Summary
+# 6. Standard extensions (gated on INSTALL_STDEXT)
+# ---------------------------------------------------------------------------
+if [ "$INSTALL_STDEXT" = "1" ]; then
+    STDEXT_SCRIPT="$SCRIPT_DIR/stdext-helper.sh"
+    if [ -x "$STDEXT_SCRIPT" ]; then
+        echo "Installing standard extensions..."
+        sh "$STDEXT_SCRIPT"
+    else
+        echo "Warning: stdext-helper.sh not found or not executable"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Summary
 # ---------------------------------------------------------------------------
 echo ""
 echo "Installation complete!"

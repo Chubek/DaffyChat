@@ -27,7 +27,6 @@ Linking:
   --pack                  Bundle shared libraries in the package
 
 Packaging options:
-  --frontend              Include frontend assets
   --with-frontend         Include frontend assets
   --no-frontend           Exclude frontend assets
   --with-services         Install default services
@@ -36,6 +35,8 @@ Packaging options:
   --no-docs               Disable documentation packaging
   --with-plugins          Install example plugins
   --no-plugins            Skip example plugins
+  --with-standard-extensions  Include and install stdext standard extensions
+  --no-standard-extensions    Exclude stdext standard extensions (default)
   --with-toolchain        Install toolchain helpers
   --no-toolchain          Skip toolchain helpers
   --with-manpages         Install manpages
@@ -127,6 +128,7 @@ INSTALL_SERVICES="ON"
 BUILD_DOCS="OFF"
 INSTALL_DOCS="OFF"
 INSTALL_PLUGINS="ON"
+INSTALL_STDEXT="OFF"
 INSTALL_TOOLCHAIN="ON"
 INSTALL_MAN="ON"
 ENABLE_TESTS="ON"
@@ -168,7 +170,7 @@ while [[ $# -gt 0 ]]; do
     --pack)
       LINKING="PACK"
       ;;
-    --frontend|--with-frontend)
+    --with-frontend)
       PACK_FRONTEND="ON"
       ;;
     --no-frontend)
@@ -193,6 +195,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-plugins)
       INSTALL_PLUGINS="OFF"
+      ;;
+    --with-standard-extensions)
+      INSTALL_STDEXT="ON"
+      ;;
+    --no-standard-extensions)
+      INSTALL_STDEXT="OFF"
       ;;
     --with-toolchain)
       INSTALL_TOOLCHAIN="ON"
@@ -415,6 +423,7 @@ declare -a cmake_args=(
   -DDAFFY_CONFIG_FORMAT="$CONFIG_FORMAT"
   -DDAFFY_INSTALL_EXAMPLE_PLUGINS="$INSTALL_PLUGINS"
   -DDAFFY_INSTALL_TOOLCHAIN="$INSTALL_TOOLCHAIN"
+  -DDAFFY_INSTALL_STDEXT="$INSTALL_STDEXT"
   -DDAFFY_ENABLE_WERROR="$ENABLE_WERROR"
   -DDAFFY_ENABLE_TESTS="$ENABLE_TESTS"
   -DNO_INSTALL_MAN="$([[ "$INSTALL_MAN" == "ON" ]] && printf 'OFF' || printf 'ON')"
@@ -439,8 +448,9 @@ printf '  linking:        %s\n' "$LINKING"
 printf '  frontend:       %s\n' "$(bool_word "$PACK_FRONTEND")"
 printf '  services:       %s\n' "$(bool_word "$INSTALL_SERVICES")"
 printf '  docs:           %s\n' "$(bool_word "$INSTALL_DOCS")"
-printf '  plugins:        %s\n' "$(bool_word "$INSTALL_PLUGINS")"
-printf '  toolchain:      %s\n' "$(bool_word "$INSTALL_TOOLCHAIN")"
+  printf '  plugins:        %s\n' "$(bool_word "$INSTALL_PLUGINS")"
+  printf '  stdext:         %s\n' "$(bool_word "$INSTALL_STDEXT")"
+  printf '  toolchain:      %s\n' "$(bool_word "$INSTALL_TOOLCHAIN")"
 printf '  manpages:       %s\n' "$(bool_word "$INSTALL_MAN")"
 printf '  config format:  %s\n' "$CONFIG_FORMAT"
 printf '  tests:          %s\n' "$(bool_word "$ENABLE_TESTS")"

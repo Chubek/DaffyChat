@@ -57,6 +57,7 @@ COMMON_DATA_FILES = [
     ("scripts/post-install.sh",     "usr/share/daffychat/scripts/post-install.sh"),
     ("scripts/linking-service.sh",  "usr/share/daffychat/scripts/linking-service.sh"),
     ("scripts/install-frontend.sh", "usr/share/daffychat/scripts/install-frontend.sh"),
+    ("scripts/stdext-helper.sh",    "usr/share/daffychat/scripts/stdext-helper.sh"),
     # Docs
     ("README.md",       "usr/share/daffychat/docs/README.md"),
     ("INSTALL.md",      "usr/share/daffychat/docs/INSTALL.md"),
@@ -125,10 +126,6 @@ FRONTEND_FILES = [
      "usr/share/daffychat/frontend/resources/error-messages.json"),
 ]
 
-COMMON_DATA_DIRS = [
-    ("stdext",       "usr/share/daffychat/stdext"),
-]
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Build DaffyChat package artifacts from an existing build directory.")
@@ -148,6 +145,10 @@ def parse_args():
                         help="Exclude frontend assets from the package")
     parser.add_argument("--client-only", action="store_true", default=False,
                         help="Build a client-only package (daffyscript + tools)")
+    parser.add_argument("--with-stdext", action="store_true", default=False,
+                        help="Include and install stdext standard extensions")
+    parser.add_argument("--no-stdext", action="store_false", dest="with_stdext",
+                        help="Exclude stdext standard extensions (default)")
     return parser.parse_args()
 
 
@@ -175,7 +176,7 @@ def _copy_file(src, dst, *, required=True):
 
 
 def install_tree(source_dir, build_dir, stage_dir, *,
-                 linking="DYNAMIC", pack_frontend=True, client_only=False):
+                 linking="DYNAMIC", pack_frontend=True, client_only=False, install_stdext=False):
     source_dir = pathlib.Path(source_dir)
     build_dir  = pathlib.Path(build_dir)
     stage_dir  = pathlib.Path(stage_dir)
@@ -221,15 +222,16 @@ def install_tree(source_dir, build_dir, stage_dir, *,
             src = source_dir / src_rel
             _copy_file(src, stage_dir / dst_rel, required=False)
 
-    # -- Data directories ---------------------------------------------------
-    for src_rel, dst_rel in COMMON_DATA_DIRS:
-        src = source_dir / src_rel
-        if not src.exists():
-            raise SystemExit(f"expected source directory is missing: {src}")
-        dst = stage_dir / dst_rel
-        if dst.exists():
-            shutil.rmtree(dst)
-        shutil.copytree(src, dst)
+    # -- Standard extensions (stdext/) -------------------------------------
+    if install_stdext:
+        stdext_src = source_dir / "stdext"
+        stdext_dst = stage_dir / "usr/share/daffychat/stdext"
+        if stdext_src.exists():
+            if stdext_dst.exists():
+                shutil.rmtree(stdext_dst)
+            shutil.copytree(stdext_src, stdext_dst)
+        else:
+            raise SystemExit(f"--with-stdext requested but stdext/ not found at: {stdext_src}")
 
     # -- PACK mode: collect vendored shared libraries -----------------------
     if linking == "PACK":
@@ -271,7 +273,8 @@ def packaged_paths(stage_dir):
 
 
 def _write_postinst(control_dir: pathlib.Path, *,
-                    pack_frontend: bool, client_only: bool, linking: str):
+                    pack_frontend: bool, client_only: bool, linking: str,
+                    install_stdext: bool = False):
     """Write DEBIAN/postinst that runs post-install.sh and (if PACK) ldconfig."""
     lines = [
         "#!/bin/sh",
@@ -287,6 +290,7 @@ def _write_postinst(control_dir: pathlib.Path, *,
         'DAFFY_PREFIX=/usr/local \\',
         f'DAFFY_CLIENT_ONLY={"1" if client_only else "0"} \\',
         f'DAFFY_PACK_FRONTEND={"1" if pack_frontend else "0"} \\',
+        f'DAFFY_INSTALL_STDEXT={"1" if install_stdext else "0"} \\',
         '  sh "$DAFFY_SCRIPTS/post-install.sh"',
         "",
     ]
@@ -317,7 +321,8 @@ def _write_conffiles(control_dir: pathlib.Path, stage_dir: pathlib.Path):
 
 
 def build_deb(stage_dir, output_dir, version, release, arch, *,
-              linking="DYNAMIC", pack_frontend=True, client_only=False):
+              linking="DYNAMIC", pack_frontend=True, client_only=False,
+              install_stdext=False):
     dpkg_deb = require_tool("dpkg-deb")
     control_dir = pathlib.Path(stage_dir) / "DEBIAN"
     control_dir.mkdir(parents=True, exist_ok=True)
@@ -346,7 +351,8 @@ def build_deb(stage_dir, output_dir, version, release, arch, *,
     _write_postinst(control_dir,
                     pack_frontend=pack_frontend,
                     client_only=client_only,
-                    linking=linking)
+                    linking=linking,
+                    install_stdext=install_stdext)
     _write_conffiles(control_dir, stage_dir)
 
     suffix = "client" if client_only else "server"
@@ -357,7 +363,9 @@ def build_deb(stage_dir, output_dir, version, release, arch, *,
     return output_path
 
 
-def build_rpm(stage_dir, output_dir, version, release, arch):
+def build_rpm(stage_dir, output_dir, version, release, arch, *,
+              linking="DYNAMIC", pack_frontend=True, client_only=False,
+              install_stdext=False):
     rpmbuild = require_tool("rpmbuild")
     output_dir = pathlib.Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -366,7 +374,28 @@ def build_rpm(stage_dir, output_dir, version, release, arch):
         for dirname in ["BUILD", "RPMS", "SOURCES", "SPECS", "SRPMS", "BUILDROOT", "tmp"]:
             (topdir_path / dirname).mkdir(parents=True, exist_ok=True)
         spec_path = topdir_path / "SPECS" / "daffychat.spec"
-        spec_path.write_text("\n".join([
+        
+        # Build %post script
+        post_lines = [
+            "DAFFY_DATA=/usr/share/daffychat",
+            "DAFFY_SCRIPTS=$DAFFY_DATA/scripts",
+            "",
+            "# Run DaffyChat post-install helper",
+            "DAFFY_PREFIX=/usr/local \\",
+            f"DAFFY_CLIENT_ONLY={'1' if client_only else '0'} \\",
+            f"DAFFY_PACK_FRONTEND={'1' if pack_frontend else '0'} \\",
+            f"DAFFY_INSTALL_STDEXT={'1' if install_stdext else '0'} \\",
+            '  sh "$DAFFY_SCRIPTS/post-install.sh"',
+        ]
+        
+        if linking == "PACK":
+            post_lines += [
+                "",
+                "# Refresh shared-library cache for packed vendored libs",
+                "ldconfig 2>/dev/null || true",
+            ]
+        
+        spec_lines = [
             "Name: daffychat",
             f"Version: {version}",
             f"Release: {release}%{{?dist}}",
@@ -390,11 +419,16 @@ def build_rpm(stage_dir, output_dir, version, release, arch):
             "%defattr(-,root,root,-)",
             *packaged_paths(stage_dir),
             "",
+            "%post",
+            *post_lines,
+            "",
             "%changelog",
             f"* {time.strftime('%a %b %d %Y')} DaffyChat <maintainers@daffychat.local> - {version}-{release}",
             "- Automated local package build",
             "",
-        ]), encoding="utf-8")
+        ]
+        
+        spec_path.write_text("\n".join(spec_lines), encoding="utf-8")
         subprocess.run([rpmbuild, "--define", f"_topdir {topdir_path}", "--define", f"_tmppath {topdir_path / 'tmp'}", "-bb", str(spec_path)], check=True)
         rpm_candidates = list((topdir_path / "RPMS").rglob("*.rpm"))
         if not rpm_candidates:
@@ -404,7 +438,9 @@ def build_rpm(stage_dir, output_dir, version, release, arch):
         return output_path
 
 
-def build_pacman(stage_dir, output_dir, version, release, arch):
+def build_pacman(stage_dir, output_dir, version, release, arch, *,
+                 linking="DYNAMIC", pack_frontend=True, client_only=False,
+                 install_stdext=False):
     output_dir = pathlib.Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     builddate = int(time.time())
@@ -424,8 +460,34 @@ def build_pacman(stage_dir, output_dir, version, release, arch):
     with tempfile.TemporaryDirectory(prefix="daffy-pacman-meta-") as meta_dir:
         meta_path = pathlib.Path(meta_dir)
         meta_path.joinpath(".PKGINFO").write_text(pkginfo, encoding="utf-8")
+        
+        # Create .INSTALL script for post-install actions
+        install_lines = [
+            "post_install() {",
+            "  DAFFY_DATA=/usr/share/daffychat",
+            "  DAFFY_SCRIPTS=$DAFFY_DATA/scripts",
+            "",
+            "  # Run DaffyChat post-install helper",
+            "  DAFFY_PREFIX=/usr/local \\",
+            f"  DAFFY_CLIENT_ONLY={'1' if client_only else '0'} \\",
+            f"  DAFFY_PACK_FRONTEND={'1' if pack_frontend else '0'} \\",
+            f"  DAFFY_INSTALL_STDEXT={'1' if install_stdext else '0'} \\",
+            '    sh "$DAFFY_SCRIPTS/post-install.sh"',
+        ]
+        
+        if linking == "PACK":
+            install_lines += [
+                "",
+                "  # Refresh shared-library cache for packed vendored libs",
+                "  ldconfig 2>/dev/null || true",
+            ]
+        
+        install_lines.append("}")
+        meta_path.joinpath(".INSTALL").write_text("\n".join(install_lines) + "\n", encoding="utf-8")
+        
         with tarfile.open(tar_path, "w") as archive:
             archive.add(meta_path / ".PKGINFO", arcname=".PKGINFO")
+            archive.add(meta_path / ".INSTALL", arcname=".INSTALL")
             for root, dirs, files in os.walk(stage_dir):
                 dirs.sort(); files.sort()
                 for filename in files:
@@ -471,6 +533,7 @@ def main():
     linking      = args.linking
     pack_frontend = args.pack_frontend
     client_only  = args.client_only
+    install_stdext = args.with_stdext
     stamp = args.stamp or time.strftime("%Y%m%d%H%M%S")
     version = args.version
     release = args.release
@@ -479,17 +542,27 @@ def main():
         install_tree(args.source_dir, args.build_dir, stage_dir,
                      linking=linking,
                      pack_frontend=pack_frontend,
-                     client_only=client_only)
+                     client_only=client_only,
+                     install_stdext=install_stdext)
         fmt = "tgz" if args.format == "tarball" else args.format
         if fmt == "deb":
             output = build_deb(stage_dir, args.output_dir, version, release, arch,
                                linking=linking,
                                pack_frontend=pack_frontend,
-                               client_only=client_only)
+                               client_only=client_only,
+                               install_stdext=install_stdext)
         elif fmt == "rpm":
-            output = build_rpm(stage_dir, args.output_dir, version, release, arch)
+            output = build_rpm(stage_dir, args.output_dir, version, release, arch,
+                               linking=linking,
+                               pack_frontend=pack_frontend,
+                               client_only=client_only,
+                               install_stdext=install_stdext)
         elif fmt == "pacman":
-            output = build_pacman(stage_dir, args.output_dir, version, release, arch)
+            output = build_pacman(stage_dir, args.output_dir, version, release, arch,
+                                  linking=linking,
+                                  pack_frontend=pack_frontend,
+                                  client_only=client_only,
+                                  install_stdext=install_stdext)
         elif fmt == "tgz":
             output = build_tgz(stage_dir, args.output_dir, version, release)
         else:

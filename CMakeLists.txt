@@ -35,6 +35,7 @@ option(BUILD_ZLIB "Add a `zlib` archive target" OFF)
 option(NO_INSTALL_MAN "Disable manpage installation" OFF)
 option(DAFFY_INSTALL_EXAMPLE_PLUGINS "Install example extensions" ON)
 option(DAFFY_INSTALL_TOOLCHAIN "Install toolchain helper scripts" ON)
+option(DAFFY_INSTALL_STDEXT "Install standard extensions from stdext/" OFF)
 option(DAFFY_PACKAGE_DEB "Enable DEB packaging support" OFF)
 option(DAFFY_PACKAGE_RPM "Enable RPM packaging support" OFF)
 option(DAFFY_PACKAGE_TGZ "Enable TGZ packaging support" OFF)
@@ -476,6 +477,7 @@ install(PROGRAMS scripts/os-service.pl DESTINATION share/daffychat/scripts)
 install(PROGRAMS scripts/post-install.sh DESTINATION share/daffychat/scripts)
 install(PROGRAMS scripts/linking-service.sh DESTINATION share/daffychat/scripts)
 install(PROGRAMS scripts/install-frontend.sh DESTINATION share/daffychat/scripts)
+install(PROGRAMS scripts/stdext-helper.sh DESTINATION share/daffychat/scripts)
 
 if(DAFFY_INSTALL_TOOLCHAIN)
   install(PROGRAMS
@@ -622,7 +624,8 @@ set(_daffy_package_targets
 set(_daffy_archive_flags
   --linking "${LINKING}"
   $<IF:$<BOOL:${PACK_FRONTEND}>,--pack-frontend,--no-pack-frontend>
-  $<IF:$<BOOL:${DAFFY_CLIENT_SIDE_ONLY}>,--client-only,>)
+  $<IF:$<BOOL:${DAFFY_CLIENT_SIDE_ONLY}>,--client-only,>
+  $<IF:$<BOOL:${DAFFY_INSTALL_STDEXT}>,--with-stdext,--no-stdext>)
 
 if(BUILD_DEB)
   add_custom_target(deb
