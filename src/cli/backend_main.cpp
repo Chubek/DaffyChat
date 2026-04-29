@@ -356,6 +356,22 @@ int RunBackendServe(const std::string& config_path) {
                                                  daffy::core::ParseLogLevel(config.server.log_level));
   daffy::runtime::InMemoryEventBus event_bus;
   daffy::rooms::RoomRegistry room_registry(logger, event_bus);
+  daffy::web::VoiceDiagnosticsHttpServer diagnostics_server(
+      config,
+      logger,
+      [&room_registry]() {
+        return daffy::util::json::Value::Object{
+            {"service", "daffy-backend"},
+            {"status", "serving"},
+            {"rooms", static_cast<int>(room_registry.List().size())},
+        };
+      });
+
+  const auto diagnostics_started = diagnostics_server.Start();
+  if (!diagnostics_started.ok()) {
+    std::cerr << "failed to start backend HTTP server: " << diagnostics_started.error().ToString() << '\n';
+    return 1;
+  }
 
   g_backend_stop_requested.store(false);
   std::signal(SIGINT, HandleBackendSignal);
@@ -363,6 +379,8 @@ int RunBackendServe(const std::string& config_path) {
 
   std::cout << daffy::core::BuildSummary() << '\n';
   std::cout << "backend config: " << daffy::config::DescribeAppConfig(config) << '\n';
+  std::cout << "backend_url: http://" << config.server.bind_address << ':' << diagnostics_started.value()
+            << config.frontend_bridge.bridge_endpoint << '\n';
   std::cout << "status: backend serve loop running (Ctrl+C to stop)" << '\n';
 
   while (!g_backend_stop_requested.load()) {
@@ -370,6 +388,7 @@ int RunBackendServe(const std::string& config_path) {
   }
 
   std::cout << "backend: shutdown requested, exiting" << '\n';
+  diagnostics_server.Stop();
   return 0;
 }
 
