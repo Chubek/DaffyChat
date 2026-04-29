@@ -22,8 +22,10 @@
 namespace {
 
 std::atomic<bool> g_voice_peer_stop_requested{false};
+std::atomic<bool> g_backend_stop_requested{false};
 
 void HandleVoicePeerSignal(const int) { g_voice_peer_stop_requested.store(true); }
+void HandleBackendSignal(const int) { g_backend_stop_requested.store(true); }
 
 struct ScopedSignalHandlers {
   using Handler = void (*)(int);
@@ -342,6 +344,35 @@ int RunBackend(const std::string& config_path) {
   return 0;
 }
 
+int RunBackendServe(const std::string& config_path) {
+  auto config_result = daffy::config::LoadAppConfigFromFile(config_path);
+  if (!config_result.ok()) {
+    std::cerr << "failed to load config: " << config_result.error().ToString() << '\n';
+    return 1;
+  }
+
+  const auto& config = config_result.value();
+  auto logger = daffy::core::CreateConsoleLogger("daffy-backend",
+                                                 daffy::core::ParseLogLevel(config.server.log_level));
+  daffy::runtime::InMemoryEventBus event_bus;
+  daffy::rooms::RoomRegistry room_registry(logger, event_bus);
+
+  g_backend_stop_requested.store(false);
+  std::signal(SIGINT, HandleBackendSignal);
+  std::signal(SIGTERM, HandleBackendSignal);
+
+  std::cout << daffy::core::BuildSummary() << '\n';
+  std::cout << "backend config: " << daffy::config::DescribeAppConfig(config) << '\n';
+  std::cout << "status: backend serve loop running (Ctrl+C to stop)" << '\n';
+
+  while (!g_backend_stop_requested.load()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  }
+
+  std::cout << "backend: shutdown requested, exiting" << '\n';
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -361,7 +392,8 @@ int main(int argc, char** argv) {
       std::cout << daffy::core::ProjectVersion() << '\n';
       return 0;
     }
-    if (argument == "--voice-devices" || argument == "--voice-smoke" || argument == "--voice-peer") {
+    if (argument == "--voice-devices" || argument == "--voice-smoke" || argument == "--voice-peer" ||
+        argument == "--serve") {
       mode = argument;
       continue;
     }
@@ -421,6 +453,9 @@ int main(int argc, char** argv) {
                         room,
                         peer_id,
                         target_peer_id);
+  }
+  if (mode == "--serve") {
+    return RunBackendServe(config_path);
   }
 
   return RunBackend(config_path);

@@ -8,7 +8,8 @@ Wants=network-online.target
 Type=simple
 User=root
 Group=root
-ExecStart=/usr/bin/daffydmd --config /etc/daffychat/daffychat.json
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/usr/bin/env daffydmd --foreground
 Restart=on-failure
 RestartSec=2s
 WorkingDirectory=/var/lib/daffychat
