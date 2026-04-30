@@ -149,6 +149,10 @@ def parse_args():
                         help="Include and install stdext standard extensions")
     parser.add_argument("--no-stdext", action="store_false", dest="with_stdext",
                         help="Exclude stdext standard extensions (default)")
+    parser.add_argument("--with-coturn", action="store_true", default=False,
+                        help="Include and install vendored coturn from third_party/")
+    parser.add_argument("--no-coturn", action="store_false", dest="with_coturn",
+                        help="Exclude vendored coturn (default)")
     return parser.parse_args()
 
 
@@ -176,7 +180,8 @@ def _copy_file(src, dst, *, required=True):
 
 
 def install_tree(source_dir, build_dir, stage_dir, *,
-                 linking="DYNAMIC", pack_frontend=True, client_only=False, install_stdext=False):
+                 linking="DYNAMIC", pack_frontend=True, client_only=False,
+                 install_stdext=False, install_coturn=False):
     source_dir = pathlib.Path(source_dir)
     build_dir  = pathlib.Path(build_dir)
     stage_dir  = pathlib.Path(stage_dir)
@@ -232,6 +237,17 @@ def install_tree(source_dir, build_dir, stage_dir, *,
             shutil.copytree(stdext_src, stdext_dst)
         else:
             raise SystemExit(f"--with-stdext requested but stdext/ not found at: {stdext_src}")
+
+    # -- Vendored coturn ----------------------------------------------------
+    if install_coturn:
+        coturn_src = source_dir / "third_party" / "coturn"
+        coturn_dst = stage_dir / "usr/share/daffychat/third_party/coturn"
+        if coturn_src.exists():
+            if coturn_dst.exists():
+                shutil.rmtree(coturn_dst)
+            shutil.copytree(coturn_src, coturn_dst)
+        else:
+            raise SystemExit(f"--with-coturn requested but third_party/coturn not found at: {coturn_src}")
 
     # -- PACK mode: collect vendored shared libraries -----------------------
     if linking == "PACK":
@@ -534,6 +550,7 @@ def main():
     pack_frontend = args.pack_frontend
     client_only  = args.client_only
     install_stdext = args.with_stdext
+    install_coturn = args.with_coturn
     stamp = args.stamp or time.strftime("%Y%m%d%H%M%S")
     version = args.version
     release = args.release
@@ -543,7 +560,8 @@ def main():
                      linking=linking,
                      pack_frontend=pack_frontend,
                      client_only=client_only,
-                     install_stdext=install_stdext)
+                     install_stdext=install_stdext,
+                     install_coturn=install_coturn)
         fmt = "tgz" if args.format == "tarball" else args.format
         if fmt == "deb":
             output = build_deb(stage_dir, args.output_dir, version, release, arch,

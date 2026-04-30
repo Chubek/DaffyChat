@@ -31,6 +31,6 @@ class VoiceDiagnosticsHttpServer {
 util::json::Value BuildNativeVoiceDiagnosticsPayload(
     const voice::NativeVoiceClientStateSnapshot& state,
     const voice::NativeVoiceClientTelemetry& telemetry,
-    std::string_view voice_transport = "native-client-only");
+    std::string_view voice_transport = "browser-socketio");
 
 }  // namespace daffy::web

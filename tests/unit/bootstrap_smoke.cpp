@@ -11,6 +11,6 @@ int main() {
   assert(!daffy::core::ProjectVersion().empty());
   assert(summary.find("server=") != std::string::npos);
   assert(summary.find("signaling=") != std::string::npos);
-  assert(summary.find("voice_transport=native-client-only") != std::string::npos);
+  assert(summary.find("voice_transport=browser-socketio") != std::string::npos);
   return 0;
 }

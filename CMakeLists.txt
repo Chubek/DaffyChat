@@ -36,6 +36,7 @@ option(NO_INSTALL_MAN "Disable manpage installation" OFF)
 option(DAFFY_INSTALL_EXAMPLE_PLUGINS "Install example extensions" ON)
 option(DAFFY_INSTALL_TOOLCHAIN "Install toolchain helper scripts" ON)
 option(DAFFY_INSTALL_STDEXT "Install standard extensions from stdext/" OFF)
+option(DAFFY_INSTALL_COTURN "Install vendored coturn from third_party/" OFF)
 option(DAFFY_PACKAGE_DEB "Enable DEB packaging support" OFF)
 option(DAFFY_PACKAGE_RPM "Enable RPM packaging support" OFF)
 option(DAFFY_PACKAGE_TGZ "Enable TGZ packaging support" OFF)
@@ -307,6 +308,8 @@ if(DAFFY_ENABLE_TESTS)
   target_link_libraries(daffy-tier2-voice-diagnostics-http-tests PRIVATE daffy_core)
   add_executable(daffy-tier2-uwebsockets-tests tests/integration/signaling_uwebsockets.cpp)
   target_link_libraries(daffy-tier2-uwebsockets-tests PRIVATE daffy_core)
+  add_executable(daffy-tier2-signaling-http-api-tests tests/integration/signaling_http_api.cpp)
+  target_link_libraries(daffy-tier2-signaling-http-api-tests PRIVATE daffy_core)
   add_executable(daffy-tier2-native-signaling-client-tests tests/integration/signaling_native_client.cpp)
   target_link_libraries(daffy-tier2-native-signaling-client-tests PRIVATE daffy_core)
 
@@ -332,6 +335,7 @@ if(DAFFY_ENABLE_TESTS)
   add_test(NAME daffy-tier2-admin-http COMMAND daffy-tier2-admin-http-tests)
   add_test(NAME daffy-tier2-voice-diagnostics-http COMMAND daffy-tier2-voice-diagnostics-http-tests)
   add_test(NAME daffy-tier2-uwebsockets COMMAND daffy-tier2-uwebsockets-tests)
+  add_test(NAME daffy-tier2-signaling-http-api COMMAND daffy-tier2-signaling-http-api-tests)
   add_test(NAME daffy-tier2-native-signaling-client COMMAND daffy-tier2-native-signaling-client-tests)
   if(DAFFY_NODE_EXECUTABLE)
     add_test(
@@ -544,6 +548,14 @@ if(DAFFY_INSTALL_EXAMPLE_PLUGINS)
   install(DIRECTORY stdext DESTINATION share/daffychat)
 endif()
 
+if(DAFFY_INSTALL_COTURN)
+  if(EXISTS "${PROJECT_SOURCE_DIR}/third_party/coturn")
+    install(DIRECTORY third_party/coturn DESTINATION share/daffychat/third_party)
+  else()
+    message(WARNING "DAFFY_INSTALL_COTURN is ON but third_party/coturn was not found")
+  endif()
+endif()
+
 if(NOT NO_INSTALL_MAN AND EXISTS "${PROJECT_SOURCE_DIR}/man")
   install(DIRECTORY man/ DESTINATION share/man/man1 FILES_MATCHING PATTERN "*.1")
   add_custom_target(install-manpages
@@ -626,7 +638,8 @@ set(_daffy_archive_flags
   --linking "${LINKING}"
   $<IF:$<BOOL:${PACK_FRONTEND}>,--pack-frontend,--no-pack-frontend>
   $<IF:$<BOOL:${DAFFY_CLIENT_SIDE_ONLY}>,--client-only,>
-  $<IF:$<BOOL:${DAFFY_INSTALL_STDEXT}>,--with-stdext,--no-stdext>)
+  $<IF:$<BOOL:${DAFFY_INSTALL_STDEXT}>,--with-stdext,--no-stdext>
+  $<IF:$<BOOL:${DAFFY_INSTALL_COTURN}>,--with-coturn,--no-coturn>)
 
 if(BUILD_DEB)
   add_custom_target(deb

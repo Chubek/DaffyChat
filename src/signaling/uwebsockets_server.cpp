@@ -1,6 +1,9 @@
 #include "daffy/signaling/uwebsockets_server.hpp"
 
 #include <algorithm>
+#include <deque>
+#include <mutex>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 
@@ -18,6 +21,14 @@ struct SocketUserData {
   bool browser_client{false};
 };
 
+struct ApiSession {
+  std::string connection_id;
+  std::deque<std::string> outbound;
+  std::string remote_address;
+  std::string user_agent;
+  bool browser_client{true};
+};
+
 bool LooksLikeBrowser(std::string_view user_agent) {
   return user_agent.find("Mozilla/") != std::string_view::npos ||
          user_agent.find("Chrome/") != std::string_view::npos ||
@@ -33,6 +44,25 @@ void WriteJsonResponse(auto* response, const int status_code, std::string_view s
       ->end(payload);
 }
 
+template <typename T>
+core::Result<T> ParseJsonBody(std::string_view body, std::string_view field) {
+  auto parsed = util::json::Parse(body);
+  if (!parsed.ok() || !parsed.value().IsObject()) {
+    return core::Error{core::ErrorCode::kInvalidArgument, "Malformed JSON body"};
+  }
+  const auto* value = parsed.value().Find(std::string(field));
+  if (value == nullptr) {
+    return core::Error{core::ErrorCode::kInvalidArgument, "Missing JSON field"};
+  }
+  if constexpr (std::is_same_v<T, std::string>) {
+    if (!value->IsString()) {
+      return core::Error{core::ErrorCode::kInvalidArgument, "Expected string field"};
+    }
+    return value->AsString();
+  }
+  return core::Error{core::ErrorCode::kInvalidArgument, "Unsupported parse type"};
+}
+
 }  // namespace
 
 UWebSocketsSignalingServer::UWebSocketsSignalingServer(config::AppConfig config,
@@ -46,6 +76,8 @@ core::Status UWebSocketsSignalingServer::Run() {
   }
 
   std::unordered_map<std::string, uWS::WebSocket<false, true, SocketUserData>*> sockets;
+  std::unordered_map<std::string, ApiSession> api_sessions;
+  std::mutex api_sessions_mutex;
   bool listen_success = false;
   int bound_port = config_.signaling.port;
 
@@ -59,6 +91,11 @@ core::Status UWebSocketsSignalingServer::Run() {
       const auto status = socket_it->second->send(payload, uWS::OpCode::TEXT);
       if (status == uWS::WebSocket<false, true, SocketUserData>::SendStatus::DROPPED) {
         logger_.Warn("Dropped signaling message for connection " + envelope.connection_id);
+      }
+      std::lock_guard<std::mutex> lock(api_sessions_mutex);
+      auto api_it = api_sessions.find(envelope.connection_id);
+      if (api_it != api_sessions.end()) {
+        api_it->second.outbound.push_back(payload);
       }
     }
   };
@@ -138,6 +175,68 @@ core::Status UWebSocketsSignalingServer::Run() {
           return;
         }
         WriteJsonResponse(response, 200, "OK", TurnCredentialsToJson(credentials.value()));
+      })
+      .post("/api/signaling/connect", [this, &api_sessions, &api_sessions_mutex](auto* response, auto* request) {
+        response->onData([this, response, request, &api_sessions, &api_sessions_mutex](std::string_view chunk, bool fin) {
+          if (!fin) {
+            return;
+          }
+          std::string user_agent = std::string(request->getHeader("user-agent"));
+          auto maybe_peer_id = ParseJsonBody<std::string>(chunk, "peer_id");
+          if (!maybe_peer_id.ok()) {
+            WriteJsonResponse(response, 400, "Bad Request", util::json::Value::Object{{"error", "invalid-body"}});
+            return;
+          }
+          const std::string connection_id = core::GenerateId("api-conn");
+          {
+            std::lock_guard<std::mutex> lock(api_sessions_mutex);
+            api_sessions[connection_id] =
+                ApiSession{connection_id, {}, std::string(response->getRemoteAddressAsText()), user_agent, true};
+          }
+          signaling_server_.OpenConnection(
+              ConnectionContext{connection_id, std::string(response->getRemoteAddressAsText()), user_agent, true});
+          WriteJsonResponse(response, 200, "OK",
+                            util::json::Value::Object{{"connection_id", connection_id},
+                                                      {"peer_id", maybe_peer_id.value()},
+                                                      {"transport", "http-api"}});
+        });
+      })
+      .post("/api/signaling/send", [this, &dispatch](auto* response, auto* request) {
+        response->onData([this, response, request, &dispatch](std::string_view chunk, bool fin) {
+          if (!fin) {
+            return;
+          }
+          auto conn = ParseJsonBody<std::string>(chunk, "connection_id");
+          auto message = ParseJsonBody<std::string>(chunk, "message");
+          if (!conn.ok() || !message.ok()) {
+            WriteJsonResponse(response, 400, "Bad Request", util::json::Value::Object{{"error", "invalid-body"}});
+            return;
+          }
+          const auto result = signaling_server_.HandleMessage(conn.value(), message.value());
+          dispatch(result.outgoing);
+          WriteJsonResponse(response, 202, "Accepted", util::json::Value::Object{{"status", "queued"}});
+        });
+      })
+      .get("/api/signaling/events", [this, &api_sessions, &api_sessions_mutex](auto* response, auto* request) {
+        const std::string connection_id = std::string(request->getQuery("connection_id"));
+        if (connection_id.empty()) {
+          WriteJsonResponse(response, 400, "Bad Request", util::json::Value::Object{{"error", "missing-connection"}});
+          return;
+        }
+        util::json::Value::Array events;
+        {
+          std::lock_guard<std::mutex> lock(api_sessions_mutex);
+          auto it = api_sessions.find(connection_id);
+          if (it == api_sessions.end()) {
+            WriteJsonResponse(response, 404, "Not Found", util::json::Value::Object{{"error", "unknown-connection"}});
+            return;
+          }
+          while (!it->second.outbound.empty()) {
+            events.emplace_back(it->second.outbound.front());
+            it->second.outbound.pop_front();
+          }
+        }
+        WriteJsonResponse(response, 200, "OK", util::json::Value::Object{{"events", std::move(events)}});
       })
       .any("/*", [](auto* response, auto* request) {
         WriteJsonResponse(response, 404, "Not Found",

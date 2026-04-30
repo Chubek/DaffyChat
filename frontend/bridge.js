@@ -208,11 +208,14 @@
   }
 
   function createSignalingClient(config) {
+    const transport = config.transport === 'socketio' ? 'socketio' : 'websocket';
     const state = {
       url: config.url || '',
       room: config.room || '',
       peerId: config.peerId || '',
+      transport: transport,
       websocket: null,
+      socketio: null,
       connected: false,
       joined: false,
       outbound: 0,
@@ -227,6 +230,30 @@
         return;
       }
 
+      emit('signaling:connecting', { url: state.url });
+      if (state.transport === 'socketio') {
+        connectSocketIo();
+      } else {
+        connectWebSocket();
+      }
+    }
+
+    function onSignalingPayload(message) {
+      emit('signaling:message', message);
+      if (message.type === 'join-ack') {
+        state.joined = true;
+        emit('signaling:joined', message);
+      } else if (message.type === 'peer-ready') {
+        emit('room:participant-joined', { peerId: message.peer_id });
+      } else if (message.type === 'peer-left') {
+        emit('room:participant-left', { peerId: message.peer_id });
+      } else if (message.type === 'error') {
+        state.lastError = message.error || 'Unknown signaling error';
+        emit('signaling:error', { error: state.lastError });
+      }
+    }
+
+    function connectWebSocket() {
       try {
         state.websocket = new WebSocket(state.url);
       } catch (err) {
@@ -235,53 +262,73 @@
         return;
       }
 
-      emit('signaling:connecting', { url: state.url });
-
       state.websocket.onopen = function () {
         state.connected = true;
         state.lastError = '';
-        emit('signaling:connected', { url: state.url });
-
+        emit('signaling:connected', { url: state.url, transport: state.transport });
         if (state.room && state.peerId) {
           send({ type: 'join', room: state.room, peer_id: state.peerId });
         }
       };
-
       state.websocket.onmessage = function (event) {
         state.inbound++;
         try {
-          const message = JSON.parse(event.data);
-          emit('signaling:message', message);
-
-          if (message.type === 'join-ack') {
-            state.joined = true;
-            emit('signaling:joined', message);
-          } else if (message.type === 'peer-ready') {
-            emit('room:participant-joined', { peerId: message.peer_id });
-          } else if (message.type === 'peer-left') {
-            emit('room:participant-left', { peerId: message.peer_id });
-          } else if (message.type === 'error') {
-            state.lastError = message.error || 'Unknown signaling error';
-            emit('signaling:error', { error: state.lastError });
-          }
+          onSignalingPayload(JSON.parse(event.data));
         } catch (err) {
           console.error('[DaffyBridge] Failed to parse signaling message:', err);
         }
       };
-
       state.websocket.onclose = function () {
         state.connected = false;
         state.joined = false;
-        emit('signaling:disconnected', { url: state.url });
+        emit('signaling:disconnected', { url: state.url, transport: state.transport });
       };
-
       state.websocket.onerror = function () {
         state.lastError = 'WebSocket error';
         emit('signaling:error', { error: state.lastError });
       };
     }
 
+    function connectSocketIo() {
+      if (typeof global.io !== 'function') {
+        state.lastError = 'Socket.IO client unavailable (load frontend/lib/socket.io.min.js)';
+        emit('signaling:error', { error: state.lastError });
+        return;
+      }
+      state.socketio = global.io(state.url, {
+        path: config.socketIoPath || '/socket.io',
+        transports: ['websocket'],
+        query: { browser: '1' }
+      });
+      state.socketio.on('connect', function () {
+        state.connected = true;
+        state.lastError = '';
+        emit('signaling:connected', { url: state.url, transport: state.transport });
+        if (state.room && state.peerId) {
+          send({ type: 'join', room: state.room, peer_id: state.peerId });
+        }
+      });
+      state.socketio.on('signal', function (message) {
+        state.inbound++;
+        onSignalingPayload(message || {});
+      });
+      state.socketio.on('disconnect', function () {
+        state.connected = false;
+        state.joined = false;
+        emit('signaling:disconnected', { url: state.url, transport: state.transport });
+      });
+      state.socketio.on('connect_error', function (err) {
+        state.lastError = 'Socket.IO error: ' + (err && err.message ? err.message : 'unknown');
+        emit('signaling:error', { error: state.lastError });
+      });
+    }
+
     function send(message) {
+      if (state.transport === 'socketio' && state.socketio && state.connected) {
+        state.socketio.emit('signal', message);
+        state.outbound++;
+        return true;
+      }
       if (state.websocket && state.websocket.readyState === WebSocket.OPEN) {
         state.websocket.send(JSON.stringify(message));
         state.outbound++;
@@ -295,6 +342,10 @@
         state.websocket.close();
         state.websocket = null;
       }
+      if (state.socketio) {
+        state.socketio.disconnect();
+        state.socketio = null;
+      }
       state.connected = false;
       state.joined = false;
     }
@@ -302,6 +353,7 @@
     function snapshot() {
       return {
         websocket: state.connected ? 'open' : 'closed',
+        transport: state.transport,
         room: state.room,
         peerId: state.peerId,
         outbound: state.outbound,

@@ -39,6 +39,8 @@ Packaging options:
   --no-standard-extensions    Exclude stdext standard extensions (default)
   --with-toolchain        Install toolchain helpers
   --no-toolchain          Skip toolchain helpers
+  --with-coturn           Include and install vendored coturn
+  --no-coturn             Skip vendored coturn (default)
   --with-manpages         Install manpages
   --no-manpages           Skip manpages
   --config-json           Install JSON config sample (default)
@@ -130,6 +132,7 @@ INSTALL_DOCS="OFF"
 INSTALL_PLUGINS="ON"
 INSTALL_STDEXT="OFF"
 INSTALL_TOOLCHAIN="ON"
+INSTALL_COTURN="OFF"
 INSTALL_MAN="ON"
 ENABLE_TESTS="ON"
 ENABLE_WERROR="OFF"
@@ -213,6 +216,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-manpages)
       INSTALL_MAN="OFF"
+      ;;
+    --with-coturn)
+      INSTALL_COTURN="ON"
+      ;;
+    --no-coturn)
+      INSTALL_COTURN="OFF"
       ;;
     --config-json)
       CONFIG_FORMAT="JSON"
@@ -424,6 +433,7 @@ declare -a cmake_args=(
   -DDAFFY_INSTALL_EXAMPLE_PLUGINS="$INSTALL_PLUGINS"
   -DDAFFY_INSTALL_TOOLCHAIN="$INSTALL_TOOLCHAIN"
   -DDAFFY_INSTALL_STDEXT="$INSTALL_STDEXT"
+  -DDAFFY_INSTALL_COTURN="$INSTALL_COTURN"
   -DDAFFY_ENABLE_WERROR="$ENABLE_WERROR"
   -DDAFFY_ENABLE_TESTS="$ENABLE_TESTS"
   -DNO_INSTALL_MAN="$([[ "$INSTALL_MAN" == "ON" ]] && printf 'OFF' || printf 'ON')"
@@ -450,6 +460,7 @@ printf '  services:       %s\n' "$(bool_word "$INSTALL_SERVICES")"
 printf '  docs:           %s\n' "$(bool_word "$INSTALL_DOCS")"
   printf '  plugins:        %s\n' "$(bool_word "$INSTALL_PLUGINS")"
   printf '  stdext:         %s\n' "$(bool_word "$INSTALL_STDEXT")"
+  printf '  coturn:         %s\n' "$(bool_word "$INSTALL_COTURN")"
   printf '  toolchain:      %s\n' "$(bool_word "$INSTALL_TOOLCHAIN")"
 printf '  manpages:       %s\n' "$(bool_word "$INSTALL_MAN")"
 printf '  config format:  %s\n' "$CONFIG_FORMAT"

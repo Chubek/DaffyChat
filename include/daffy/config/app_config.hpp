@@ -56,7 +56,7 @@ struct FrontendBridgeConfig {
   std::string asset_root{"./frontend"};
   std::string bridge_endpoint{"/bridge"};
   bool allow_wasm_extensions{true};
-  std::string voice_transport{"native-client-only"};
+  std::string voice_transport{"browser-socketio"};
 };
 
 struct VoiceConfig {

@@ -266,6 +266,15 @@ if get_option('enable_tests')
   )
   test('daffy-tier2-uwebsockets', tier2_uwebsockets_test)
 
+  tier2_signaling_http_api_test = executable(
+    'daffy-tier2-signaling-http-api-tests',
+    'tests/integration/signaling_http_api.cpp',
+    include_directories: project_includes,
+    link_with: bootstrap_lib,
+    cpp_args: common_cpp_args,
+  )
+  test('daffy-tier2-signaling-http-api', tier2_signaling_http_api_test)
+
   tier2_native_signaling_client_test = executable(
     'daffy-tier2-native-signaling-client-tests',
     'tests/integration/signaling_native_client.cpp',

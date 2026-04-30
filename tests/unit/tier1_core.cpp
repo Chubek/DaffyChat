@@ -20,7 +20,7 @@ int main() {
   auto config = daffy::config::LoadAppConfigFromFile(daffy::config::ExampleConfigPath());
   assert(config.ok());
   assert(config.value().signaling.stun_servers.size() == 1);
-  assert(config.value().frontend_bridge.voice_transport == "native-client-only");
+  assert(config.value().frontend_bridge.voice_transport == "browser-socketio");
   assert(config.value().voice.preferred_capture_sample_rate == 48000);
   assert(config.value().voice.enable_noise_suppression);
 
