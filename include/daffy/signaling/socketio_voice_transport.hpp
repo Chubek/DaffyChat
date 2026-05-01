@@ -1,9 +1,10 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
-#include <mutex>
 
 #include "daffy/config/app_config.hpp"
 #include "daffy/core/logger.hpp"
@@ -27,7 +28,7 @@ class SocketIOVoiceTransport {
   SocketIOVoiceTransport(const SocketIOVoiceTransport&) = delete;
   SocketIOVoiceTransport& operator=(const SocketIOVoiceTransport&) = delete;
 
-  core::Result<void> Start();
+  core::Result<core::Status> Start();
   void Stop();
   bool IsRunning() const;
 

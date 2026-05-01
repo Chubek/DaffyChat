@@ -1,5 +1,6 @@
 #include "daffy/signaling/socketio_voice_transport.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <sstream>
 #include <thread>
@@ -25,18 +26,18 @@ SocketIOVoiceTransport::SocketIOVoiceTransport(const SocketIOVoiceTransportConfi
 
 SocketIOVoiceTransport::~SocketIOVoiceTransport() { Stop(); }
 
-core::Result<void> SocketIOVoiceTransport::Start() {
+core::Result<core::Status> SocketIOVoiceTransport::Start() {
   if (running_.load()) {
-    return core::Error("socketio-voice-transport-already-running", "Socket.IO voice transport is already running");
+    return core::Error{core::ErrorCode::kStateError, "Socket.IO voice transport is already running"};
   }
 
-  logger_->Info("Starting Socket.IO voice transport on {}:{}", config_.bind_address, config_.port);
+  logger_->Info("Starting Socket.IO voice transport on " + config_.bind_address + ":" + std::to_string(config_.port));
 
   running_.store(true);
   stop_requested_.store(false);
 
   logger_->Info("Socket.IO voice transport started successfully");
-  return core::Result<void>::Ok();
+  return core::OkStatus();
 }
 
 void SocketIOVoiceTransport::Stop() {
@@ -73,8 +74,8 @@ void SocketIOVoiceTransport::HandleConnect(const std::string& socket_id, const s
 
   sessions_[socket_id] = std::move(session);
 
-  logger_->Info("Socket.IO client connected: socket_id={} peer_id={} connection_id={}", socket_id, peer_id,
-                connection_id);
+  logger_->Info("Socket.IO client connected: socket_id=" + socket_id + " peer_id=" + peer_id + 
+                " connection_id=" + connection_id);
 
   ConnectionContext context;
   context.connection_id = connection_id;
@@ -82,7 +83,7 @@ void SocketIOVoiceTransport::HandleConnect(const std::string& socket_id, const s
   context.user_agent = "socketio-client";
   context.browser_client = true;
 
-  signaling_server_.OnConnect(context);
+  signaling_server_.OpenConnection(context);
 
   util::json::Value response = util::json::Value::Object{{"connection_id", connection_id}, {"peer_id", peer_id}};
 
@@ -94,14 +95,14 @@ void SocketIOVoiceTransport::HandleDisconnect(const std::string& socket_id) {
 
   const auto it = sessions_.find(socket_id);
   if (it == sessions_.end()) {
-    logger_->Warn("Socket.IO disconnect for unknown socket_id={}", socket_id);
+    logger_->Warn("Socket.IO disconnect for unknown socket_id=" + socket_id);
     return;
   }
 
   const std::string connection_id = it->second.connection_id;
-  logger_->Info("Socket.IO client disconnected: socket_id={} connection_id={}", socket_id, connection_id);
+  logger_->Info("Socket.IO client disconnected: socket_id=" + socket_id + " connection_id=" + connection_id);
 
-  signaling_server_.OnDisconnect(connection_id);
+  signaling_server_.CloseConnection(connection_id);
   sessions_.erase(it);
 }
 
@@ -111,18 +112,18 @@ void SocketIOVoiceTransport::HandleSignalMessage(const std::string& socket_id, c
     std::lock_guard<std::mutex> lock(sessions_mutex_);
     session = FindSessionBySocketId(socket_id);
     if (!session) {
-      logger_->Warn("Received signal message from unknown socket_id={}", socket_id);
+      logger_->Warn("Received signal message from unknown socket_id=" + socket_id);
       return;
     }
     session->last_seen_ms = NowUnixMillis();
   }
 
-  logger_->Debug("Socket.IO signal message from socket_id={}: {}", socket_id, message);
+  logger_->Debug("Socket.IO signal message from socket_id=" + socket_id + ": " + message);
 
   const auto dispatch_result = signaling_server_.HandleMessage(session->connection_id, message);
 
   if (!dispatch_result.accepted) {
-    logger_->Warn("Signaling server rejected message from socket_id={}", socket_id);
+    logger_->Warn("Signaling server rejected message from socket_id=" + socket_id);
     return;
   }
 
@@ -144,10 +145,9 @@ void SocketIOVoiceTransport::PollAndSendEvents(const std::string& socket_id) {
     }
   }
 
-  const auto events = signaling_server_.PollEvents(session->connection_id);
-  for (const auto& event_json : events) {
-    BroadcastToSocket(socket_id, "signal", event_json);
-  }
+  // Note: SignalingServer doesn't have a PollEvents method
+  // Events are returned directly from HandleMessage
+  // This is a placeholder for future event polling implementation
 }
 
 std::string SocketIOVoiceTransport::CreateConnectionId(const std::string& socket_id) {
@@ -195,7 +195,9 @@ void SocketIOVoiceTransport::RunEventLoop() {
 void SocketIOVoiceTransport::BroadcastToSocket(const std::string& socket_id,
                                                const std::string& event_name,
                                                const std::string& payload) {
-  logger_->Debug("Broadcasting to socket_id={} event={} payload={}", socket_id, event_name, payload);
+  logger_->Debug("Broadcasting to socket_id=" + socket_id + " event=" + event_name + " payload=" + payload);
+  // Actual Socket.IO broadcast implementation would go here
+  // This is a placeholder that logs the broadcast intent
 }
 
 }  // namespace daffy::signaling

@@ -133,6 +133,7 @@ set(DAFFY_CORE_SOURCES
   src/signaling/admin_http_server.cpp
   src/signaling/server.cpp
   src/signaling/uwebsockets_server.cpp
+  src/signaling/socketio_voice_transport.cpp
   services/generated/echo.service.cpp
   services/generated/echo.skeleton.cpp
   services/generated/room_ops.service.cpp
@@ -731,4 +732,3 @@ if(BUILD_ZLIB)
     DEPENDS ${_daffy_package_targets}
     COMMENT "Building DaffyChat zlib archive")
 endif()
-  src/signaling/socketio_voice_transport.cpp
