@@ -731,3 +731,4 @@ if(BUILD_ZLIB)
     DEPENDS ${_daffy_package_targets}
     COMMENT "Building DaffyChat zlib archive")
 endif()
+  src/signaling/socketio_voice_transport.cpp

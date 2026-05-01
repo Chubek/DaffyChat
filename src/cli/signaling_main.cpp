@@ -2,6 +2,7 @@
 #include <chrono>
 #include <csignal>
 #include <iostream>
+#include <memory>
 #include <string_view>
 #include <thread>
 
@@ -10,6 +11,7 @@
 #include "daffy/core/logger.hpp"
 #include "daffy/signaling/admin_http_server.hpp"
 #include "daffy/signaling/server.hpp"
+#include "daffy/signaling/socketio_voice_transport.hpp"
 #include "daffy/signaling/uwebsockets_server.hpp"
 
 #ifndef DAFFY_SOURCE_DIR
@@ -22,7 +24,7 @@ std::atomic<bool> g_stop_requested{false};
 
 void HandleSignal(int) { g_stop_requested.store(true); }
 
-int RunSignaling(const std::string& config_path, const std::string_view mode) {
+int RunSignaling(const std::string& config_path, const std::string_view mode, bool enable_socketio_voice) {
   auto config_result = daffy::config::LoadAppConfigFromFile(config_path);
   if (!config_result.ok()) {
     std::cerr << "failed to load config: " << config_result.error().ToString() << '\n';
@@ -44,7 +46,9 @@ int RunSignaling(const std::string& config_path, const std::string_view mode) {
     std::cout << daffy::util::json::Serialize(server.DebugStateToJson()) << '\n';
     return 0;
   }
-  if (mode == "--serve") {
+  if (mode == "--serve" || mode == "--serve-socketio") {
+    const bool use_socketio = (mode == "--serve-socketio") || enable_socketio_voice;
+
     if (!server.HasUWebSocketsRuntimeDependencies()) {
       daffy::signaling::SignalingAdminHttpServer admin_server(config_result.value(), server, logger);
       const auto start_result = admin_server.Start();
@@ -74,7 +78,12 @@ int RunSignaling(const std::string& config_path, const std::string_view mode) {
       return 0;
     }
 
-    std::cout << "transport: uwebsockets" << '\n';
+    if (use_socketio) {
+      std::cout << "transport: uwebsockets + socketio-voice" << '\n';
+    } else {
+      std::cout << "transport: uwebsockets" << '\n';
+    }
+
     std::cout << "websocket_url: ws://" << config_result.value().signaling.bind_address << ':'
               << config_result.value().signaling.port << '/' << '\n';
     std::cout << "health_url: http://" << config_result.value().signaling.bind_address << ':'
@@ -84,12 +93,37 @@ int RunSignaling(const std::string& config_path, const std::string_view mode) {
     std::cout << "turn_url: http://" << config_result.value().signaling.bind_address << ':'
               << config_result.value().signaling.port << config_result.value().signaling.turn_credentials_endpoint
               << "?room=<room>&peer_id=<peer>" << '\n';
+
+    std::unique_ptr<daffy::signaling::SocketIOVoiceTransport> socketio_transport;
+    if (use_socketio) {
+      daffy::signaling::SocketIOVoiceTransportConfig socketio_config;
+      socketio_config.bind_address = config_result.value().signaling.bind_address;
+      socketio_config.port = 7002;
+      socketio_config.enabled = true;
+
+      socketio_transport = std::make_unique<daffy::signaling::SocketIOVoiceTransport>(
+          socketio_config, server, logger);
+
+      const auto start_result = socketio_transport->Start();
+      if (!start_result.ok()) {
+        std::cerr << "Failed to start Socket.IO voice transport: " << start_result.error().ToString() << '\n';
+      } else {
+        std::cout << "socketio_voice_url: http://" << socketio_config.bind_address << ':'
+                  << socketio_config.port << '/' << '\n';
+      }
+    }
+
     daffy::signaling::UWebSocketsSignalingServer transport(config_result.value(), server, logger);
     const auto run_result = transport.Run();
     if (!run_result.ok()) {
       std::cerr << "uWebSockets signaling server failed: " << run_result.error().ToString() << '\n';
       return 1;
     }
+
+    if (socketio_transport) {
+      socketio_transport->Stop();
+    }
+
     return 0;
   }
 
@@ -108,14 +142,20 @@ int main(int argc, char** argv) {
 
   std::string_view mode;
   std::string config_path = daffy::config::DefaultConfigPath();
+  bool enable_socketio_voice = false;
+
   for (int index = 1; index < argc; ++index) {
     const std::string_view argument = argv[index];
-    if (argument == "--health" || argument == "--debug" || argument == "--serve") {
+    if (argument == "--health" || argument == "--debug" || argument == "--serve" || argument == "--serve-socketio") {
       mode = argument;
+      continue;
+    }
+    if (argument == "--enable-socketio-voice") {
+      enable_socketio_voice = true;
       continue;
     }
     config_path = argv[index];
   }
 
-  return RunSignaling(config_path, mode);
+  return RunSignaling(config_path, mode, enable_socketio_voice);
 }
