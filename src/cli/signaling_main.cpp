@@ -102,7 +102,7 @@ int RunSignaling(const std::string& config_path, const std::string_view mode, bo
       socketio_config.enabled = true;
 
       socketio_transport = std::make_unique<daffy::signaling::SocketIOVoiceTransport>(
-          socketio_config, server, logger);
+          socketio_config, server, std::make_shared<daffy::core::Logger>(logger));
 
       const auto start_result = socketio_transport->Start();
       if (!start_result.ok()) {
