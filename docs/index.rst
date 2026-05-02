@@ -75,3 +75,5 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+   operations/troubleshooting
+   server-setup

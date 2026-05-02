@@ -409,3 +409,218 @@ For issues or questions:
 2. Review the signaling server logs
 3. Inspect browser console for client-side errors
 4. Consult the Voice Transport API documentation
+
+## Frontend Implementation
+
+### Socket.IO Voice Transport Client
+
+A complete Socket.IO voice transport client has been implemented at `frontend/app/api/socketio-voice-transport.js`. This module provides:
+
+- WebRTC peer connection management
+- Socket.IO signaling integration
+- Audio stream handling
+- Event-based API for easy integration
+
+### Voice Demo Page
+
+A standalone demo page is available at `frontend/voice-demo.html` that demonstrates:
+
+- Connecting to the Socket.IO voice transport server
+- Joining voice rooms
+- Starting voice calls with WebRTC
+- Muting/unmuting audio
+- Real-time event logging
+
+To use the demo:
+
+1. Start the signaling server with Socket.IO:
+   ```bash
+   ./daffy-signaling --serve-socketio
+   ```
+
+2. Serve the frontend files:
+   ```bash
+   cd frontend
+   python3 -m http.server 8000
+   ```
+
+3. Open http://localhost:8000/voice-demo.html in your browser
+
+4. Click "Connect" to establish Socket.IO connection
+
+5. Click "Join Room" to enter a voice room
+
+6. Click "Start Call" to begin voice communication
+
+### Integration Example
+
+Here's how to integrate the Socket.IO voice transport into your own application:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="lib/socket.io.min.js"></script>
+  <script src="app/api/socketio-voice-transport.js"></script>
+</head>
+<body>
+  <button id="joinBtn">Join Voice</button>
+  <audio id="remoteAudio" autoplay></audio>
+
+  <script>
+    const transport = new SocketIOVoiceTransport({
+      serverUrl: 'http://localhost:7002',
+      peerId: 'user-' + Date.now(),
+      room: 'my-room',
+      debug: true
+    });
+
+    // Register event handlers
+    transport.on('connected', (data) => {
+      console.log('Connected:', data.connection_id);
+    });
+
+    transport.on('remoteStream', (stream) => {
+      document.getElementById('remoteAudio').srcObject = stream;
+    });
+
+    transport.on('error', (error) => {
+      console.error('Error:', error);
+    });
+
+    // Join voice on button click
+    document.getElementById('joinBtn').onclick = async () => {
+      await transport.connect();
+      await transport.joinRoom('my-room');
+      await transport.startCall();
+    };
+  </script>
+</body>
+</html>
+```
+
+### API Reference
+
+#### Constructor
+
+```javascript
+new SocketIOVoiceTransport(config)
+```
+
+**Config options:**
+- `serverUrl` (string): Socket.IO server URL (default: 'http://localhost:7002')
+- `peerId` (string): Unique peer identifier (auto-generated if not provided)
+- `room` (string): Room name (default: 'default')
+- `iceServers` (array): STUN/TURN server configuration
+- `debug` (boolean): Enable debug logging (default: false)
+
+#### Methods
+
+**`connect()`**
+- Establishes Socket.IO connection to the server
+- Returns: Promise that resolves when connected
+
+**`joinRoom(room)`**
+- Joins a voice room
+- Parameters: `room` (string) - Room name
+- Returns: Promise
+
+**`startCall()`**
+- Requests microphone access and creates WebRTC peer connection
+- Returns: Promise that resolves with local MediaStream
+
+**`createOffer()`**
+- Creates and sends WebRTC offer to peer
+- Returns: Promise
+
+**`leaveRoom()`**
+- Leaves current room and cleans up resources
+
+**`disconnect()`**
+- Disconnects from Socket.IO server
+
+**`setMuted(muted)`**
+- Mutes or unmutes local audio
+- Parameters: `muted` (boolean)
+
+**`isMuted()`**
+- Returns: boolean indicating if local audio is muted
+
+**`on(event, handler)`**
+- Registers event handler
+- Events: 'connected', 'disconnected', 'remoteStream', 'error', 'peerReady', 'callStarted', 'callEnded'
+
+### Browser Compatibility
+
+The Socket.IO voice transport requires:
+
+- WebRTC support (Chrome 56+, Firefox 52+, Safari 11+, Edge 79+)
+- getUserMedia API for microphone access
+- WebSocket or long-polling support for Socket.IO
+
+### Production Deployment
+
+For production deployment, see the comprehensive [Server Setup Guide](docs/server-setup.rst) which covers:
+
+- Complete server installation and configuration
+- Nginx reverse proxy setup with SSL
+- Systemd service configuration
+- TURN server setup for NAT traversal
+- Security hardening
+- Performance optimization
+- Monitoring and troubleshooting
+
+## Comparison: HTTP API vs Socket.IO
+
+### HTTP Voice Transport API
+
+**Pros:**
+- Simple REST-like interface
+- Easy to debug with curl
+- No persistent connection overhead
+- Works with any HTTP client
+
+**Cons:**
+- Requires polling for events
+- Higher latency for signaling
+- More HTTP overhead
+
+**Use cases:**
+- Testing and debugging
+- Simple integrations
+- Low-frequency signaling
+
+### Socket.IO Voice Transport
+
+**Pros:**
+- Real-time bidirectional communication
+- Automatic reconnection
+- Lower latency
+- Better for interactive applications
+- Familiar event-based API
+
+**Cons:**
+- Requires WebSocket support
+- More complex server implementation
+- Persistent connection overhead
+
+**Use cases:**
+- Web browser clients
+- Mobile applications
+- Real-time voice chat
+- Production deployments
+
+## Next Steps
+
+1. **Test the demo**: Try `frontend/voice-demo.html` to verify your setup
+2. **Integrate into your app**: Use the Socket.IO client in your frontend
+3. **Deploy to production**: Follow the [Server Setup Guide](docs/server-setup.rst)
+4. **Monitor performance**: Use the health endpoints and logs
+5. **Scale as needed**: Add load balancing and TURN servers
+
+## Additional Resources
+
+- [Voice Transport API Documentation](VOICE_TRANSPORT_API.md)
+- [Server Setup Guide](docs/server-setup.rst)
+- [Socket.IO Documentation](https://socket.io/docs/)
+- [WebRTC API Reference](https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API)
