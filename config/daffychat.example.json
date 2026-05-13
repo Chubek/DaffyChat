@@ -1,29 +1,29 @@
 {
   "server": {
     "bind_address": "0.0.0.0",
-    "port": 7000,
+    "port": 8080,
     "public_base_url": "http://127.0.0.1:7000",
     "log_level": "info"
   },
   "signaling": {
     "bind_address": "0.0.0.0",
     "port": 7001,
-    "max_room_size": 2,
-    "ping_interval_ms": 15000,
+    "max_room_size": 10,
+    "ping_interval_ms": 25000,
     "ping_timeout_ms": 30000,
-    "reconnect_grace_ms": 45000,
-    "health_endpoint": "/healthz",
+    "reconnect_grace_ms": 30000,
+    "health_endpoint": "/health",
     "debug_rooms_endpoint": "/debug/rooms",
-    "turn_credentials_endpoint": "/debug/turn-credentials",
+    "turn_credentials_endpoint": "/turn/credentials",
     "stun_servers": [
       "stun:stun.l.google.com:19302"
     ],
     "allow_browser_signaling": true
   },
   "turn": {
-    "uri": "turn:turn.example.com:3478?transport=udp",
-    "username": "daffy",
-    "password": "change-me",
+    "uri": "",
+    "username": "",
+    "password": "",
     "credential_mode": "static"
   },
   "runtime_isolation": {
@@ -41,19 +41,19 @@
   "frontend_bridge": {
     "enabled": true,
     "asset_root": "./frontend",
-    "bridge_endpoint": "/bridge",
+    "bridge_endpoint": "/api/bridge",
     "allow_wasm_extensions": true,
     "voice_transport": "native-client-only"
   },
   "voice": {
-    "preferred_input_device": "default",
-    "preferred_output_device": "default",
+    "preferred_input_device": "",
+    "preferred_output_device": "",
     "preferred_capture_sample_rate": 48000,
     "preferred_playback_sample_rate": 48000,
     "preferred_channels": 1,
     "frames_per_buffer": 480,
-    "playout_buffer_frames": 3,
-    "max_playout_buffer_frames": 8,
+    "playout_buffer_frames": 960,
+    "max_playout_buffer_frames": 4800,
     "enable_noise_suppression": true,
     "enable_metrics": true
   }

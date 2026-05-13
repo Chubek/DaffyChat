@@ -7,13 +7,13 @@ Requires=daffydmd.service
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=daffychat
+Group=daffychat
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ExecStart=/usr/bin/env daffy-backend --serve --config /etc/daffychat/daffychat.json
+ExecStart=/usr/bin/env daffy-backend --serve /etc/daffychat/config.json
 Restart=on-failure
-RestartSec=3s
-WorkingDirectory=/var/lib/daffychat
+RestartSec=5
+WorkingDirectory=/opt/daffychat
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=daffy-backend
