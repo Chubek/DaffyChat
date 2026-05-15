@@ -357,6 +357,7 @@ target_include_directories(dssl-bindgen PRIVATE
 target_link_libraries(dssl-bindgen PRIVATE daffy_project_options)
 
 set(DAFFY_GENERATED_SERVICE_DIR "${CMAKE_BINARY_DIR}/generated/services")
+set(DAFFY_DSSL_BINDGEN_STAGING_BIN "/tmp/daffy-dssl-bindgen")
 add_custom_command(
   OUTPUT
     "${DAFFY_GENERATED_SERVICE_DIR}/echo.generated.hpp"
@@ -364,7 +365,11 @@ add_custom_command(
     "${DAFFY_GENERATED_SERVICE_DIR}/echo.service.cpp"
     "${DAFFY_GENERATED_SERVICE_DIR}/echo.skeleton.cpp"
   COMMAND ${CMAKE_COMMAND} -E make_directory "${DAFFY_GENERATED_SERVICE_DIR}"
-  COMMAND dssl-bindgen --target cpp --out-dir "${DAFFY_GENERATED_SERVICE_DIR}" "${PROJECT_SOURCE_DIR}/services/specs/echo.dssl"
+  COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:dssl-bindgen>" "${DAFFY_DSSL_BINDGEN_STAGING_BIN}"
+  COMMAND /usr/bin/chmod +x "${DAFFY_DSSL_BINDGEN_STAGING_BIN}"
+  COMMAND ${CMAKE_COMMAND} -E env
+    DSSL_BINDGEN_RUN=1
+    "${DAFFY_DSSL_BINDGEN_STAGING_BIN}" --target cpp --out-dir "${DAFFY_GENERATED_SERVICE_DIR}" "${PROJECT_SOURCE_DIR}/services/specs/echo.dssl"
   DEPENDS dssl-bindgen "${PROJECT_SOURCE_DIR}/services/specs/echo.dssl"
   COMMENT "Generating echo service artifacts from DSSL"
   VERBATIM)
@@ -382,7 +387,11 @@ add_custom_command(
     "${DAFFY_GENERATED_SERVICE_DIR}/room_ops.service.cpp"
     "${DAFFY_GENERATED_SERVICE_DIR}/room_ops.skeleton.cpp"
   COMMAND ${CMAKE_COMMAND} -E make_directory "${DAFFY_GENERATED_SERVICE_DIR}"
-  COMMAND dssl-bindgen --target cpp --out-dir "${DAFFY_GENERATED_SERVICE_DIR}" "${PROJECT_SOURCE_DIR}/services/specs/room_ops.dssl"
+  COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:dssl-bindgen>" "${DAFFY_DSSL_BINDGEN_STAGING_BIN}"
+  COMMAND /usr/bin/chmod +x "${DAFFY_DSSL_BINDGEN_STAGING_BIN}"
+  COMMAND ${CMAKE_COMMAND} -E env
+    DSSL_BINDGEN_RUN=1
+    "${DAFFY_DSSL_BINDGEN_STAGING_BIN}" --target cpp --out-dir "${DAFFY_GENERATED_SERVICE_DIR}" "${PROJECT_SOURCE_DIR}/services/specs/room_ops.dssl"
   DEPENDS dssl-bindgen "${PROJECT_SOURCE_DIR}/services/specs/room_ops.dssl"
   COMMENT "Generating room_ops service artifacts from DSSL"
   VERBATIM)
