@@ -41,6 +41,8 @@ Packaging options:
   --no-toolchain          Skip toolchain helpers
   --with-coturn           Include and install vendored coturn
   --no-coturn             Skip vendored coturn (default)
+  --with-socketio-server  Build and package Socket.IO server dependency
+  --no-socketio-server    Skip Socket.IO server dependency (default)
   --with-manpages         Install manpages
   --no-manpages           Skip manpages
   --config-json           Install JSON config sample (default)
@@ -133,6 +135,7 @@ INSTALL_PLUGINS="ON"
 INSTALL_STDEXT="OFF"
 INSTALL_TOOLCHAIN="ON"
 INSTALL_COTURN="OFF"
+WITH_SOCKETIO_SERVER="OFF"
 INSTALL_MAN="ON"
 ENABLE_TESTS="ON"
 ENABLE_WERROR="OFF"
@@ -148,8 +151,10 @@ CLEAN="OFF"
 DRY_RUN="OFF"
 VERBOSE="OFF"
 EXTERNLIB_SCRIPT="$SCRIPT_DIR/scripts/externlib_service.sh"
+DEPENDENCY_SERVICES_SCRIPT="$SCRIPT_DIR/scripts/dependencies-services.sh"
 EXTERNLIB_BUILD_ROOT=""
 EXTERNLIB_INSTALL_PREFIX=""
+SOCKETIO_SERVER_BINARY=""
 
 declare -a FORMATS=()
 
@@ -222,6 +227,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-coturn)
       INSTALL_COTURN="OFF"
+      ;;
+    --with-socketio-server)
+      WITH_SOCKETIO_SERVER="ON"
+      ;;
+    --no-socketio-server)
+      WITH_SOCKETIO_SERVER="OFF"
       ;;
     --config-json)
       CONFIG_FORMAT="JSON"
@@ -322,6 +333,7 @@ fi
 
 EXTERNLIB_BUILD_ROOT="$BUILD_DIR/externlib"
 EXTERNLIB_INSTALL_PREFIX="$EXTERNLIB_BUILD_ROOT/prefix"
+SOCKETIO_SERVER_BINARY="$BUILD_DIR/dependencies/socketio-server"
 
 case "$SCOPE" in
   client)
@@ -371,10 +383,10 @@ run_external_libs() {
 
   case "$LINKING" in
     STATIC|PACK)
-      [[ -x "$EXTERNLIB_SCRIPT" ]] || die "missing helper script: $EXTERNLIB_SCRIPT"
+      [[ -f "$EXTERNLIB_SCRIPT" ]] || die "missing helper script: $EXTERNLIB_SCRIPT"
       printf 'Preparing external libraries...\n'
       local helper_cmd=(
-        "$EXTERNLIB_SCRIPT"
+        bash "$EXTERNLIB_SCRIPT"
         --lib all
         --mode "$(printf '%s' "$LINKING" | tr '[:upper:]' '[:lower:]')"
         --build-root "$EXTERNLIB_BUILD_ROOT"
@@ -398,6 +410,30 @@ run_external_libs() {
       export CMAKE_PREFIX_PATH CMAKE_LIBRARY_PATH CMAKE_INCLUDE_PATH
       ;;
   esac
+}
+
+run_dependency_services() {
+  [[ "$WITH_SOCKETIO_SERVER" == "ON" ]] || return 0
+  [[ "$SCOPE" == "server" ]] || die "--with-socketio-server requires --server scope"
+  [[ -f "$DEPENDENCY_SERVICES_SCRIPT" ]] || die "missing helper script: $DEPENDENCY_SERVICES_SCRIPT"
+
+  printf 'Preparing dependency services...\n'
+  local helper_cmd=(
+    bash "$DEPENDENCY_SERVICES_SCRIPT"
+    --build-socketio-server
+    --source-dir "$SCRIPT_DIR/third_party/Socket.IO.Server.CPP"
+    --output-binary "$SOCKETIO_SERVER_BINARY"
+  )
+  if [[ -n "$JOBS" ]]; then
+    helper_cmd+=(--jobs "$JOBS")
+  fi
+  if [[ "$CLEAN" == "ON" ]]; then
+    helper_cmd+=(--clean)
+  fi
+  if [[ "$DRY_RUN" == "ON" ]]; then
+    helper_cmd+=(--dry-run)
+  fi
+  run_cmd "${helper_cmd[@]}"
 }
 
 if [[ "$DRY_RUN" == "OFF" ]]; then
@@ -434,6 +470,7 @@ declare -a cmake_args=(
   -DDAFFY_INSTALL_TOOLCHAIN="$INSTALL_TOOLCHAIN"
   -DDAFFY_INSTALL_STDEXT="$INSTALL_STDEXT"
   -DDAFFY_INSTALL_COTURN="$INSTALL_COTURN"
+  -DDAFFY_WITH_SOCKETIO_SERVER="$WITH_SOCKETIO_SERVER"
   -DDAFFY_ENABLE_WERROR="$ENABLE_WERROR"
   -DDAFFY_ENABLE_TESTS="$ENABLE_TESTS"
   -DNO_INSTALL_MAN="$([[ "$INSTALL_MAN" == "ON" ]] && printf 'OFF' || printf 'ON')"
@@ -458,10 +495,11 @@ printf '  linking:        %s\n' "$LINKING"
 printf '  frontend:       %s\n' "$(bool_word "$PACK_FRONTEND")"
 printf '  services:       %s\n' "$(bool_word "$INSTALL_SERVICES")"
 printf '  docs:           %s\n' "$(bool_word "$INSTALL_DOCS")"
-  printf '  plugins:        %s\n' "$(bool_word "$INSTALL_PLUGINS")"
-  printf '  stdext:         %s\n' "$(bool_word "$INSTALL_STDEXT")"
-  printf '  coturn:         %s\n' "$(bool_word "$INSTALL_COTURN")"
-  printf '  toolchain:      %s\n' "$(bool_word "$INSTALL_TOOLCHAIN")"
+printf '  plugins:        %s\n' "$(bool_word "$INSTALL_PLUGINS")"
+printf '  stdext:         %s\n' "$(bool_word "$INSTALL_STDEXT")"
+printf '  coturn:         %s\n' "$(bool_word "$INSTALL_COTURN")"
+printf '  socketio:       %s\n' "$(bool_word "$WITH_SOCKETIO_SERVER")"
+printf '  toolchain:      %s\n' "$(bool_word "$INSTALL_TOOLCHAIN")"
 printf '  manpages:       %s\n' "$(bool_word "$INSTALL_MAN")"
 printf '  config format:  %s\n' "$CONFIG_FORMAT"
 printf '  tests:          %s\n' "$(bool_word "$ENABLE_TESTS")"
@@ -480,6 +518,7 @@ fi
 printf '\n'
 
 run_external_libs
+run_dependency_services
 run_cmd cmake "${cmake_args[@]}"
 
 declare -a package_paths=()

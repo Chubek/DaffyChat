@@ -37,6 +37,7 @@ option(DAFFY_INSTALL_EXAMPLE_PLUGINS "Install example extensions" ON)
 option(DAFFY_INSTALL_TOOLCHAIN "Install toolchain helper scripts" ON)
 option(DAFFY_INSTALL_STDEXT "Install standard extensions from stdext/" OFF)
 option(DAFFY_INSTALL_COTURN "Install vendored coturn from third_party/" OFF)
+option(DAFFY_WITH_SOCKETIO_SERVER "Include packaged Socket.IO server dependency" OFF)
 option(DAFFY_PACKAGE_DEB "Enable DEB packaging support" OFF)
 option(DAFFY_PACKAGE_RPM "Enable RPM packaging support" OFF)
 option(DAFFY_PACKAGE_TGZ "Enable TGZ packaging support" OFF)
@@ -484,6 +485,10 @@ install(PROGRAMS scripts/post-install.sh DESTINATION share/daffychat/scripts)
 install(PROGRAMS scripts/linking-service.sh DESTINATION share/daffychat/scripts)
 install(PROGRAMS scripts/install-frontend.sh DESTINATION share/daffychat/scripts)
 install(PROGRAMS scripts/stdext-helper.sh DESTINATION share/daffychat/scripts)
+install(PROGRAMS scripts/dependencies-services.sh DESTINATION share/daffychat/scripts)
+if(DAFFY_WITH_SOCKETIO_SERVER)
+  install(FILES scripts/socketio-server.service DESTINATION share/daffychat/scripts)
+endif()
 
 if(DAFFY_INSTALL_TOOLCHAIN)
   install(PROGRAMS
@@ -640,7 +645,9 @@ set(_daffy_archive_flags
   $<IF:$<BOOL:${PACK_FRONTEND}>,--pack-frontend,--no-pack-frontend>
   $<IF:$<BOOL:${DAFFY_CLIENT_SIDE_ONLY}>,--client-only,>
   $<IF:$<BOOL:${DAFFY_INSTALL_STDEXT}>,--with-stdext,--no-stdext>
-  $<IF:$<BOOL:${DAFFY_INSTALL_COTURN}>,--with-coturn,--no-coturn>)
+  $<IF:$<BOOL:${DAFFY_INSTALL_COTURN}>,--with-coturn,--no-coturn>
+  $<IF:$<BOOL:${DAFFY_WITH_SOCKETIO_SERVER}>,--with-socketio-server,--no-socketio-server>
+  --socketio-binary "${CMAKE_BINARY_DIR}/dependencies/socketio-server")
 
 if(BUILD_DEB)
   add_custom_target(deb

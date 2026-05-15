@@ -1,0 +1,13 @@
+[Unit]
+Description=DaffyChat Socket.IO Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/daffychat/socketio-server
+Restart=on-failure
+RestartSec=3
+WorkingDirectory=/usr/lib/daffychat
+
+[Install]
+WantedBy=multi-user.target

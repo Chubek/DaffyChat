@@ -58,6 +58,7 @@ COMMON_DATA_FILES = [
     ("scripts/linking-service.sh",  "usr/share/daffychat/scripts/linking-service.sh"),
     ("scripts/install-frontend.sh", "usr/share/daffychat/scripts/install-frontend.sh"),
     ("scripts/stdext-helper.sh",    "usr/share/daffychat/scripts/stdext-helper.sh"),
+    ("scripts/dependencies-services.sh", "usr/share/daffychat/scripts/dependencies-services.sh"),
     # Docs
     ("README.md",       "usr/share/daffychat/docs/README.md"),
     ("INSTALL.md",      "usr/share/daffychat/docs/INSTALL.md"),
@@ -66,6 +67,11 @@ COMMON_DATA_FILES = [
     ("EXTENSIBILITY.md","usr/share/daffychat/docs/EXTENSIBILITY.md"),
     ("RECIPES.md",      "usr/share/daffychat/docs/RECIPES.md"),
 ]
+
+SOCKETIO_SERVER_INSTALL_PATH = "usr/lib/daffychat/socketio-server"
+SOCKETIO_SERVICE_INSTALL_PATH = "usr/share/daffychat/scripts/socketio-server.service"
+SOCKETIO_ARCHIVE_PAYLOAD_DIR = "usr/share/daffychat/socketio"
+SOCKETIO_ARCHIVE_INSTALL_SCRIPT = "usr/share/daffychat/scripts/install-socketio-server.sh"
 
 # ---------------------------------------------------------------------------
 # Server-only data files
@@ -153,6 +159,12 @@ def parse_args():
                         help="Include and install vendored coturn from third_party/")
     parser.add_argument("--no-coturn", action="store_false", dest="with_coturn",
                         help="Exclude vendored coturn (default)")
+    parser.add_argument("--with-socketio-server", action="store_true", default=False,
+                        help="Include compiled Socket.IO server artifacts")
+    parser.add_argument("--no-socketio-server", action="store_false", dest="with_socketio_server",
+                        help="Exclude Socket.IO server artifacts (default)")
+    parser.add_argument("--socketio-binary", default="",
+                        help="Path to compiled socketio-server binary")
     return parser.parse_args()
 
 
@@ -179,9 +191,50 @@ def _copy_file(src, dst, *, required=True):
     shutil.copy2(src, dst)
 
 
+def _write_socketio_archive_install_script(script_path: pathlib.Path):
+    lines = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "",
+        'SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"',
+        'PAYLOAD_DIR="${SCRIPT_DIR}/../socketio"',
+        'SERVICE_SRC="${PAYLOAD_DIR}/socketio-server.service"',
+        'BINARY_SRC="${PAYLOAD_DIR}/socketio-server"',
+        'TARGET_BIN="/usr/lib/daffychat/socketio-server"',
+        'TARGET_SERVICE="/etc/systemd/system/socketio-server.service"',
+        "",
+        'if [[ ! -f "$BINARY_SRC" ]]; then',
+        '  echo "error: missing socketio-server payload at $BINARY_SRC" >&2',
+        "  exit 1",
+        "fi",
+        'if [[ ! -f "$SERVICE_SRC" ]]; then',
+        '  echo "error: missing socketio-server service at $SERVICE_SRC" >&2',
+        "  exit 1",
+        "fi",
+        "",
+        'echo "Installing socketio-server into /usr/lib/daffychat..."',
+        'install -d "/usr/lib/daffychat"',
+        'install -m 0755 "$BINARY_SRC" "$TARGET_BIN"',
+        'install -m 0644 "$SERVICE_SRC" "$TARGET_SERVICE"',
+        "",
+        "if command -v systemctl >/dev/null 2>&1; then",
+        "  systemctl daemon-reload || true",
+        '  echo "Enable with: sudo systemctl enable --now socketio-server.service"',
+        "fi",
+        "",
+        'echo "Done."',
+        "",
+    ]
+    script_path.parent.mkdir(parents=True, exist_ok=True)
+    script_path.write_text("\n".join(lines), encoding="utf-8")
+    script_path.chmod(0o755)
+
+
 def install_tree(source_dir, build_dir, stage_dir, *,
                  linking="DYNAMIC", pack_frontend=True, client_only=False,
-                 install_stdext=False, install_coturn=False):
+                 install_stdext=False, install_coturn=False,
+                 with_socketio_server=False, socketio_binary="",
+                 package_format=""):
     source_dir = pathlib.Path(source_dir)
     build_dir  = pathlib.Path(build_dir)
     stage_dir  = pathlib.Path(stage_dir)
@@ -249,6 +302,38 @@ def install_tree(source_dir, build_dir, stage_dir, *,
         else:
             raise SystemExit(f"--with-coturn requested but third_party/coturn not found at: {coturn_src}")
 
+    # -- Optional Socket.IO server payload ----------------------------------
+    if with_socketio_server:
+        socketio_service_src = source_dir / "scripts" / "socketio-server.service"
+        if not socketio_binary:
+            raise SystemExit("--with-socketio-server requested but --socketio-binary was not provided.")
+        socketio_binary_path = pathlib.Path(socketio_binary)
+        if not socketio_binary_path.exists():
+            raise SystemExit(
+                "--with-socketio-server requested but compiled binary is missing. "
+                "Pass --socketio-binary to a built socketio-server artifact.")
+        if not socketio_service_src.exists():
+            raise SystemExit(
+                "--with-socketio-server requested but scripts/socketio-server.service is missing.")
+
+        installable_formats = {"deb", "rpm", "pacman"}
+        if package_format in installable_formats:
+            socketio_dst = stage_dir / SOCKETIO_SERVER_INSTALL_PATH
+            socketio_dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(socketio_binary_path, socketio_dst)
+            socketio_dst.chmod(0o755)
+            _copy_file(socketio_service_src, stage_dir / SOCKETIO_SERVICE_INSTALL_PATH)
+        else:
+            payload_dir = stage_dir / SOCKETIO_ARCHIVE_PAYLOAD_DIR
+            payload_dir.mkdir(parents=True, exist_ok=True)
+            payload_bin = payload_dir / "socketio-server"
+            payload_service = payload_dir / "socketio-server.service"
+            shutil.copy2(socketio_binary_path, payload_bin)
+            payload_bin.chmod(0o755)
+            shutil.copy2(socketio_service_src, payload_service)
+            payload_service.chmod(0o644)
+            _write_socketio_archive_install_script(stage_dir / SOCKETIO_ARCHIVE_INSTALL_SCRIPT)
+
     # -- PACK mode: collect vendored shared libraries -----------------------
     if linking == "PACK":
         pack_lib_dst = stage_dir / "usr/share/daffychat/lib"
@@ -290,7 +375,8 @@ def packaged_paths(stage_dir):
 
 def _write_postinst(control_dir: pathlib.Path, *,
                     pack_frontend: bool, client_only: bool, linking: str,
-                    install_stdext: bool = False):
+                    install_stdext: bool = False,
+                    install_socketio_server: bool = False):
     """Write DEBIAN/postinst that runs post-install.sh and (if PACK) ldconfig."""
     lines = [
         "#!/bin/sh",
@@ -307,6 +393,7 @@ def _write_postinst(control_dir: pathlib.Path, *,
         f'DAFFY_CLIENT_ONLY={"1" if client_only else "0"} \\',
         f'DAFFY_PACK_FRONTEND={"1" if pack_frontend else "0"} \\',
         f'DAFFY_INSTALL_STDEXT={"1" if install_stdext else "0"} \\',
+        f'DAFFY_INSTALL_SOCKETIO_SERVER={"1" if install_socketio_server else "0"} \\',
         '  sh "$DAFFY_SCRIPTS/post-install.sh"',
         "",
     ]
@@ -338,7 +425,7 @@ def _write_conffiles(control_dir: pathlib.Path, stage_dir: pathlib.Path):
 
 def build_deb(stage_dir, output_dir, version, release, arch, *,
               linking="DYNAMIC", pack_frontend=True, client_only=False,
-              install_stdext=False):
+              install_stdext=False, install_socketio_server=False):
     dpkg_deb = require_tool("dpkg-deb")
     control_dir = pathlib.Path(stage_dir) / "DEBIAN"
     control_dir.mkdir(parents=True, exist_ok=True)
@@ -368,7 +455,8 @@ def build_deb(stage_dir, output_dir, version, release, arch, *,
                     pack_frontend=pack_frontend,
                     client_only=client_only,
                     linking=linking,
-                    install_stdext=install_stdext)
+                    install_stdext=install_stdext,
+                    install_socketio_server=install_socketio_server)
     _write_conffiles(control_dir, stage_dir)
 
     suffix = "client" if client_only else "server"
@@ -381,7 +469,7 @@ def build_deb(stage_dir, output_dir, version, release, arch, *,
 
 def build_rpm(stage_dir, output_dir, version, release, arch, *,
               linking="DYNAMIC", pack_frontend=True, client_only=False,
-              install_stdext=False):
+              install_stdext=False, install_socketio_server=False):
     rpmbuild = require_tool("rpmbuild")
     output_dir = pathlib.Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -401,6 +489,7 @@ def build_rpm(stage_dir, output_dir, version, release, arch, *,
             f"DAFFY_CLIENT_ONLY={'1' if client_only else '0'} \\",
             f"DAFFY_PACK_FRONTEND={'1' if pack_frontend else '0'} \\",
             f"DAFFY_INSTALL_STDEXT={'1' if install_stdext else '0'} \\",
+            f"DAFFY_INSTALL_SOCKETIO_SERVER={'1' if install_socketio_server else '0'} \\",
             '  sh "$DAFFY_SCRIPTS/post-install.sh"',
         ]
         
@@ -456,7 +545,7 @@ def build_rpm(stage_dir, output_dir, version, release, arch, *,
 
 def build_pacman(stage_dir, output_dir, version, release, arch, *,
                  linking="DYNAMIC", pack_frontend=True, client_only=False,
-                 install_stdext=False):
+                 install_stdext=False, install_socketio_server=False):
     output_dir = pathlib.Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     builddate = int(time.time())
@@ -488,6 +577,7 @@ def build_pacman(stage_dir, output_dir, version, release, arch, *,
             f"  DAFFY_CLIENT_ONLY={'1' if client_only else '0'} \\",
             f"  DAFFY_PACK_FRONTEND={'1' if pack_frontend else '0'} \\",
             f"  DAFFY_INSTALL_STDEXT={'1' if install_stdext else '0'} \\",
+            f"  DAFFY_INSTALL_SOCKETIO_SERVER={'1' if install_socketio_server else '0'} \\",
             '    sh "$DAFFY_SCRIPTS/post-install.sh"',
         ]
         
@@ -551,36 +641,44 @@ def main():
     client_only  = args.client_only
     install_stdext = args.with_stdext
     install_coturn = args.with_coturn
+    with_socketio_server = args.with_socketio_server
+    socketio_binary = args.socketio_binary
     stamp = args.stamp or time.strftime("%Y%m%d%H%M%S")
     version = args.version
     release = args.release
     arch = detect_arch()
+    fmt = "tgz" if args.format == "tarball" else args.format
     with tempfile.TemporaryDirectory(prefix=f"daffy-stage-{stamp}-") as stage_dir:
         install_tree(args.source_dir, args.build_dir, stage_dir,
                      linking=linking,
                      pack_frontend=pack_frontend,
                      client_only=client_only,
                      install_stdext=install_stdext,
-                     install_coturn=install_coturn)
-        fmt = "tgz" if args.format == "tarball" else args.format
+                     install_coturn=install_coturn,
+                     with_socketio_server=with_socketio_server,
+                     socketio_binary=socketio_binary,
+                     package_format=fmt)
         if fmt == "deb":
             output = build_deb(stage_dir, args.output_dir, version, release, arch,
                                linking=linking,
                                pack_frontend=pack_frontend,
                                client_only=client_only,
-                               install_stdext=install_stdext)
+                               install_stdext=install_stdext,
+                               install_socketio_server=with_socketio_server)
         elif fmt == "rpm":
             output = build_rpm(stage_dir, args.output_dir, version, release, arch,
                                linking=linking,
                                pack_frontend=pack_frontend,
                                client_only=client_only,
-                               install_stdext=install_stdext)
+                               install_stdext=install_stdext,
+                               install_socketio_server=with_socketio_server)
         elif fmt == "pacman":
             output = build_pacman(stage_dir, args.output_dir, version, release, arch,
                                   linking=linking,
                                   pack_frontend=pack_frontend,
                                   client_only=client_only,
-                                  install_stdext=install_stdext)
+                                  install_stdext=install_stdext,
+                                  install_socketio_server=with_socketio_server)
         elif fmt == "tgz":
             output = build_tgz(stage_dir, args.output_dir, version, release)
         else:

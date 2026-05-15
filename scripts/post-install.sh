@@ -9,6 +9,7 @@
 #   DAFFY_CLIENT_ONLY    1 | 0                (default 0)
 #   DAFFY_PACK_FRONTEND  1 | 0 – if 1 also run install-frontend.sh (default 1)
 #   DAFFY_INSTALL_STDEXT 1 | 0 – if 1 also run stdext-helper.sh (default 0)
+#   DAFFY_INSTALL_SOCKETIO_SERVER 1 | 0       (default 0)
 
 set -e
 
@@ -24,6 +25,7 @@ CONFIG_FORMAT="${DAFFY_CONFIG_FORMAT:-json}"
 CLIENT_ONLY="${DAFFY_CLIENT_ONLY:-0}"
 PACK_FRONTEND="${DAFFY_PACK_FRONTEND:-1}"
 INSTALL_STDEXT="${DAFFY_INSTALL_STDEXT:-0}"
+INSTALL_SOCKETIO_SERVER="${DAFFY_INSTALL_SOCKETIO_SERVER:-0}"
 
 # ---------------------------------------------------------------------------
 # Detect OS-specific paths via os-service.pl if available
@@ -58,6 +60,7 @@ echo "Systemd dir    : $DAFFY_SYSTEMDDIR"
 echo "Client-only    : $CLIENT_ONLY"
 echo "Pack frontend  : $PACK_FRONTEND"
 echo "Install stdext : $INSTALL_STDEXT"
+echo "Install socketio server : $INSTALL_SOCKETIO_SERVER"
 echo ""
 
 # ---------------------------------------------------------------------------
@@ -128,6 +131,9 @@ if [ "$CLIENT_ONLY" != "1" ] && [ -n "$DAFFY_SYSTEMDDIR" ]; then
     install_service "daffydmd.service"
     install_service "daffybackend.service"
     install_service "daffysignaling.service"
+    if [ "$INSTALL_SOCKETIO_SERVER" = "1" ]; then
+        install_service "socketio-server.service"
+    fi
 
     if command -v systemctl >/dev/null 2>&1; then
         echo "Reloading systemd daemon..."
@@ -195,9 +201,16 @@ else
     echo "  Binaries    : ${PREFIX}/bin/{daffy-backend,daffy-signaling,daffydmd}"
     echo "  Config      : ${DAFFY_CONFIGDIR}/${DAFFY_CONFIGFILE}"
     echo "  Services    : daffydmd  daffybackend  daffysignaling"
+    if [ "$INSTALL_SOCKETIO_SERVER" = "1" ]; then
+        echo "                socketio-server"
+    fi
     echo ""
     echo "  Quick start:"
-    echo "    sudo systemctl enable --now daffydmd daffybackend daffysignaling"
+    if [ "$INSTALL_SOCKETIO_SERVER" = "1" ]; then
+        echo "    sudo systemctl enable --now daffydmd daffybackend daffysignaling socketio-server"
+    else
+        echo "    sudo systemctl enable --now daffydmd daffybackend daffysignaling"
+    fi
 fi
 echo ""
 echo "  Docs : $DAFFY_DOCDIR"
