@@ -1,0 +1,15 @@
+# DaffyChat URL Rewriting for Short Room Names
+# This allows accessing rooms via daffychat.ir/<room-name>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Redirect /r/<room-name> to r.html?name=<room-name>
+  RewriteRule ^r/([a-zA-Z0-9-]{4,10})$ r.html?name=$1 [L,QSA]
+  
+  # Redirect /<room-name> directly to room page (if not a file/directory)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^([a-zA-Z0-9-]{4,10})$ r.html?name=$1 [L,QSA]
+</IfModule>

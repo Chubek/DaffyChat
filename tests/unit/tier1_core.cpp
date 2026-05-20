@@ -33,8 +33,9 @@ int main() {
   });
 
   daffy::rooms::RoomRegistry room_registry(logger, event_bus);
-  auto room = room_registry.CreateRoom("alpha");
+  auto room = room_registry.CreateRoom("alpha", "alpha1");
   assert(room.ok());
+  assert(room.value().custom_name == "alpha1");
   auto participant = room_registry.AddParticipant(room.value().id, "alice", daffy::rooms::ParticipantRole::kMember);
   assert(participant.ok());
   auto session = room_registry.AttachSession(room.value().id, participant.value().id, "peer-a");

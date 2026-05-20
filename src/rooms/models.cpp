@@ -1,4 +1,5 @@
 #include "daffy/rooms/models.hpp"
+#include "daffy/core/time.hpp"
 
 namespace daffy::rooms {
 
@@ -70,10 +71,25 @@ util::json::Value RoomToJson(const Room& room) {
 
   return util::json::Value::Object{{"id", room.id},
                                    {"display_name", room.display_name},
+                                   {"custom_name", room.custom_name},
+                                   {"is_password_protected", room.is_password_protected},
                                    {"state", ToString(room.state)},
                                    {"created_at", room.created_at},
                                    {"participants", participants},
                                    {"sessions", sessions}};
+}
+
+bool Room::IsDead(int inactivity_threshold_seconds) const {
+  if (state == RoomState::kClosed) {
+    return true;
+  }
+  
+  if (last_activity_at.empty()) {
+    return false;
+  }
+  
+  // Simple check: if no participants and not active, consider dead
+  return participants.empty() && state != RoomState::kActive;
 }
 
 }  // namespace daffy::rooms

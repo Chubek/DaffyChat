@@ -315,7 +315,7 @@ int RunBackend(const std::string& config_path) {
 
   daffy::rooms::RoomRegistry room_registry(logger, event_bus);
 
-  auto room = room_registry.CreateRoom("bootstrap-room");
+  auto room = room_registry.CreateRoom("bootstrap-room", "bootstrap");
   if (!room.ok()) {
     std::cerr << "failed to create room: " << room.error().ToString() << '\n';
     return 1;

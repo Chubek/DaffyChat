@@ -85,10 +85,12 @@ core::Result<ipc::MessageEnvelope> RoomStateService::Handle(const ipc::MessageEn
   const auto& method = rpc->AsString();
   if (method == "CreateRoom") {
     const auto* display_name = request.payload.Find("display_name");
-    if (display_name == nullptr || !display_name->IsString()) {
-      return core::Error{core::ErrorCode::kParseError, "CreateRoom requires a string `display_name` field"};
+    const auto* custom_name = request.payload.Find("custom_name");
+    if (display_name == nullptr || !display_name->IsString() || custom_name == nullptr || !custom_name->IsString()) {
+      return core::Error{core::ErrorCode::kParseError,
+                         "CreateRoom requires string `display_name` and `custom_name` fields"};
     }
-    auto room = room_registry_.CreateRoom(display_name->AsString());
+    auto room = room_registry_.CreateRoom(display_name->AsString(), custom_name->AsString());
     if (!room.ok()) {
       return room.error();
     }

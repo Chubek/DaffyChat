@@ -49,6 +49,19 @@ include(DaffyVendoredDependencies)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 find_package(Confuse QUIET)
 
+if(EXISTS "${PROJECT_SOURCE_DIR}/third_party/ZethaDB/CMakeLists.txt")
+  set(ZETHADB_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(ZETHADB_BUILD_FUZZ_TARGETS OFF CACHE BOOL "" FORCE)
+  add_subdirectory(third_party/ZethaDB EXCLUDE_FROM_ALL)
+endif()
+
+if(EXISTS "${PROJECT_SOURCE_DIR}/third_party/jwt-cpp/CMakeLists.txt")
+  set(JWT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(JWT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(JWT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+  add_subdirectory(third_party/jwt-cpp EXCLUDE_FROM_ALL)
+endif()
+
 if(DAFFY_HAVE_nng)
   set(NNG_ENABLE_TLS OFF CACHE BOOL "" FORCE)
   set(NNG_ENABLE_HTTP OFF CACHE BOOL "" FORCE)
@@ -151,6 +164,8 @@ set(DAFFY_CORE_SOURCES
   src/rooms/models.cpp
   src/rooms/events.cpp
   src/rooms/room_registry.cpp
+  src/rooms/room_database.cpp
+  src/rooms/room_auth.cpp
   src/voice/audio_pipeline.cpp
   src/voice/audio_processing.cpp
   src/voice/live_voice_session.cpp
@@ -166,6 +181,7 @@ set(DAFFY_CORE_SOURCES
   src/voice/voice_peer_session.cpp
   src/web/webhook.cpp
   src/web/voice_diagnostics_http_server.cpp
+  third_party/sha2/sha2.c
   third_party/uWebSockets/uSockets/src/bsd.c
   third_party/uWebSockets/uSockets/src/context.c
   third_party/uWebSockets/uSockets/src/crypto/openssl.c
@@ -189,6 +205,8 @@ target_include_directories(daffy_core
     "${PROJECT_SOURCE_DIR}/third_party/opus/include"
     "${PROJECT_SOURCE_DIR}/third_party/portaudio/include"
     "${PROJECT_SOURCE_DIR}/third_party/rnnoise/include"
+    "${PROJECT_SOURCE_DIR}/third_party/ZethaDB"
+    "${PROJECT_SOURCE_DIR}/third_party/sha2"
     "${PROJECT_SOURCE_DIR}/third_party/uWebSockets/src"
     "${PROJECT_SOURCE_DIR}/third_party/uWebSockets/uSockets/src")
 
@@ -209,6 +227,14 @@ if(TARGET nng)
   else()
     target_link_libraries(daffy_core PUBLIC nng)
   endif()
+endif()
+if(TARGET zethamem)
+  target_link_libraries(daffy_core PUBLIC zethamem)
+endif()
+if(TARGET jwt-cpp::jwt-cpp)
+  target_link_libraries(daffy_core PUBLIC jwt-cpp::jwt-cpp)
+elseif(TARGET jwt-cpp)
+  target_link_libraries(daffy_core PUBLIC jwt-cpp)
 endif()
 
 add_executable(daffy-backend src/cli/backend_main.cpp)

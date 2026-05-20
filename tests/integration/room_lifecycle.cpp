@@ -17,10 +17,11 @@ int main() {
 
   // Test 1: Create room
   std::cout << "  Test 1: Create room\n";
-  auto room_result = registry.CreateRoom("Test Room");
+  auto room_result = registry.CreateRoom("Test Room", "test-room");
   assert(room_result.ok());
   auto room = room_result.value();
   assert(room.display_name == "Test Room");
+  assert(room.custom_name == "test-room");
   assert(room.state == daffy::rooms::RoomState::kActive);
   assert(!room.id.empty());
   std::cout << "    Created room: " << room.id << "\n";
