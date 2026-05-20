@@ -536,6 +536,8 @@ endif()
 if(DAFFY_ENABLE_FRONTEND_ASSETS AND PACK_FRONTEND)
   install(FILES
     frontend/index.html
+    frontend/create-room.html
+    frontend/r.html
     frontend/room.html
     frontend/guide.html
     frontend/dynerror.html
@@ -559,6 +561,7 @@ if(DAFFY_ENABLE_FRONTEND_ASSETS AND PACK_FRONTEND)
     DESTINATION share/daffychat/frontend/app/components)
   install(FILES
     frontend/lib/animate.min.css
+    frontend/lib/lucide.js
     frontend/lib/quote.js
     DESTINATION share/daffychat/frontend/lib)
   install(FILES

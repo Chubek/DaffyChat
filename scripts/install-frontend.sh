@@ -74,7 +74,7 @@ root /var/www/daffychat;
 index index.html;
 
 location / {
-    try_files $uri $uri/ /index.html;
+    try_files $uri $uri/ /room.html;
 }
 
 # Route HTTP errors to the dynamic error page

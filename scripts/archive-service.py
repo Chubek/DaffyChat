@@ -92,6 +92,8 @@ SERVER_DATA_FILES = [
 # ---------------------------------------------------------------------------
 FRONTEND_FILES = [
     ("frontend/index.html",   "usr/share/daffychat/frontend/index.html"),
+    ("frontend/create-room.html", "usr/share/daffychat/frontend/create-room.html"),
+    ("frontend/r.html",       "usr/share/daffychat/frontend/r.html"),
     ("frontend/room.html",    "usr/share/daffychat/frontend/room.html"),
     ("frontend/guide.html",   "usr/share/daffychat/frontend/guide.html"),
     ("frontend/dynerror.html","usr/share/daffychat/frontend/dynerror.html"),
@@ -114,6 +116,8 @@ FRONTEND_FILES = [
      "usr/share/daffychat/frontend/app/components/extension-panel.js"),
     ("frontend/lib/animate.min.css",
      "usr/share/daffychat/frontend/lib/animate.min.css"),
+    ("frontend/lib/lucide.js",
+     "usr/share/daffychat/frontend/lib/lucide.js"),
     ("frontend/lib/quote.js",
      "usr/share/daffychat/frontend/lib/quote.js"),
     ("frontend/lib/wasm-runtime.js",

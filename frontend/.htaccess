@@ -5,11 +5,11 @@
   RewriteEngine On
   RewriteBase /
   
-  # Redirect /r/<room-name> to r.html?name=<room-name>
-  RewriteRule ^r/([a-zA-Z0-9-]{4,10})$ r.html?name=$1 [L,QSA]
+  # Redirect /r/<room-name> to room.html
+  RewriteRule ^r/([a-zA-Z0-9-]{4,10})$ room.html [L]
   
   # Redirect /<room-name> directly to room page (if not a file/directory)
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^([a-zA-Z0-9-]{4,10})$ r.html?name=$1 [L,QSA]
+  RewriteRule ^([a-zA-Z0-9-]{4,10})$ room.html [L]
 </IfModule>
