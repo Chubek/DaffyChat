@@ -562,6 +562,7 @@ if(DAFFY_ENABLE_FRONTEND_ASSETS AND PACK_FRONTEND)
   install(FILES
     frontend/lib/animate.min.css
     frontend/lib/lucide.js
+    frontend/lib/natural.min.js
     frontend/lib/quote.js
     DESTINATION share/daffychat/frontend/lib)
   install(FILES

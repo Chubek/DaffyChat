@@ -118,6 +118,8 @@ FRONTEND_FILES = [
      "usr/share/daffychat/frontend/lib/animate.min.css"),
     ("frontend/lib/lucide.js",
      "usr/share/daffychat/frontend/lib/lucide.js"),
+    ("frontend/lib/natural.min.js",
+     "usr/share/daffychat/frontend/lib/natural.min.js"),
     ("frontend/lib/quote.js",
      "usr/share/daffychat/frontend/lib/quote.js"),
     ("frontend/lib/wasm-runtime.js",

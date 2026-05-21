@@ -3,6 +3,14 @@
 
 namespace daffy::services {
 
+namespace {
+
+bool IsValidRoomName(const std::string& name) {
+  return daffy::rooms::ValidateRoomName(name);
+}
+
+}  // namespace
+
 RoomManagementService::RoomManagementService(rooms::RoomRegistry& registry, core::Logger logger)
     : registry_(registry), logger_(std::move(logger)) {}
 
@@ -13,6 +21,13 @@ util::json::Value RoomManagementService::HandleCreateRoom(const util::json::Valu
     std::string custom_name = obj.at("custom_name").AsString();
     std::string password = obj.count("password") ? obj.at("password").AsString() : "";
     std::string creator_id = obj.count("creator_id") ? obj.at("creator_id").AsString() : core::GenerateId("user");
+
+    if (!IsValidRoomName(custom_name)) {
+      return util::json::Value::Object{
+        {"success", false},
+        {"error", "Invalid room name: must be 4-10 chars, alphanumeric and dash only"}
+      };
+    }
     
     auto result = registry_.CreateRoom(display_name, custom_name, password, creator_id);
     

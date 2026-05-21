@@ -265,7 +265,10 @@ bool ValidateRoomName(const std::string& name) {
   }
   
   for (char c : name) {
-    if (!std::isalnum(c) && c != '-') {
+    const unsigned char ch = static_cast<unsigned char>(c);
+    const bool is_ascii_alnum =
+        (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+    if (!is_ascii_alnum && c != '-') {
       return false;
     }
   }
