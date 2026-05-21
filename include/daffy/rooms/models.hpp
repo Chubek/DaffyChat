@@ -58,6 +58,8 @@ struct Room {
   std::string created_at;
   std::string last_activity_at;  // For detecting dead rooms
   bool is_password_protected{false};
+  bool is_e2e_encrypted{false};
+  std::string e2e_secret;  // Base64-encoded room secret used by clients
   std::vector<Participant> participants;
   std::vector<PeerSession> sessions;
   

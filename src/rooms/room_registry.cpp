@@ -1,14 +1,54 @@
 #include "daffy/rooms/room_registry.hpp"
 
 #include <algorithm>
+#include <cstring>
+
+#include "mbedtls/base64.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/entropy.h"
 
 #include "daffy/core/id.hpp"
 #include "daffy/core/time.hpp"
 
 namespace daffy::rooms {
 
-RoomRegistry::RoomRegistry(core::Logger logger, runtime::EventBus& event_bus)
-    : logger_(std::move(logger)), event_bus_(event_bus) {
+namespace {
+
+std::string GenerateRoomSecret() {
+  unsigned char secret[32];
+  mbedtls_entropy_context entropy;
+  mbedtls_ctr_drbg_context ctr_drbg;
+  mbedtls_entropy_init(&entropy);
+  mbedtls_ctr_drbg_init(&ctr_drbg);
+  const char* personalization = "daffychat-room-secret";
+  if (mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                            reinterpret_cast<const unsigned char*>(personalization),
+                            std::strlen(personalization)) != 0) {
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    return {};
+  }
+  if (mbedtls_ctr_drbg_random(&ctr_drbg, secret, sizeof(secret)) != 0) {
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    return {};
+  }
+  unsigned char encoded[128];
+  std::size_t encoded_len = 0;
+  if (mbedtls_base64_encode(encoded, sizeof(encoded), &encoded_len, secret, sizeof(secret)) != 0) {
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    return {};
+  }
+  mbedtls_ctr_drbg_free(&ctr_drbg);
+  mbedtls_entropy_free(&entropy);
+  return std::string(reinterpret_cast<char*>(encoded), encoded_len);
+}
+
+}  // namespace
+
+RoomRegistry::RoomRegistry(core::Logger logger, runtime::EventBus& event_bus, bool encryption_default_enabled)
+    : logger_(std::move(logger)), event_bus_(event_bus), encryption_default_enabled_(encryption_default_enabled) {
   // Initialize database and auth service
   db_ = std::make_unique<RoomDatabase>("./data/rooms.db", logger_);
   auth_ = std::make_unique<RoomAuthService>("daffychat-secret-key-change-in-production");
@@ -48,6 +88,13 @@ core::Result<Room> RoomRegistry::CreateRoom(std::string display_name, std::strin
   if (!password.empty()) {
     room.password_hash = HashPassword(password);
     room.is_password_protected = true;
+  }
+  if (encryption_default_enabled_) {
+    room.e2e_secret = GenerateRoomSecret();
+    room.is_e2e_encrypted = !room.e2e_secret.empty();
+  } else {
+    room.e2e_secret.clear();
+    room.is_e2e_encrypted = false;
   }
   
   // Store in memory and database
@@ -240,6 +287,27 @@ bool RoomRegistry::IsRoomCreator(const RoomId& room_id, const ParticipantId& par
   }
   
   return room_result.value().creator_id == participant_id;
+}
+
+core::Result<Room> RoomRegistry::SetRoomEncryption(const RoomId& room_id, bool enabled) {
+  const auto room_it = rooms_.find(room_id);
+  if (room_it == rooms_.end()) {
+    return core::Error{core::ErrorCode::kNotFound, "Room not found: " + room_id};
+  }
+
+  room_it->second.is_e2e_encrypted = enabled;
+  if (enabled && room_it->second.e2e_secret.empty()) {
+    room_it->second.e2e_secret = GenerateRoomSecret();
+  }
+  if (!enabled) {
+    room_it->second.e2e_secret.clear();
+  }
+  room_it->second.last_activity_at = core::UtcNowIso8601();
+  auto status = db_->UpdateRoom(room_it->second);
+  if (!status.ok()) {
+    return status;
+  }
+  return room_it->second;
 }
 
 std::vector<Room> RoomRegistry::List() const {

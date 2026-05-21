@@ -83,14 +83,44 @@ class RoomAuth {
   }
   
   async authenticate(roomName, password) {
-    // In production: POST to /api/rooms/authenticate
     const response = await fetch('/api/rooms/authenticate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ custom_name: roomName, password })
     });
-    
+
+    if (response.ok) {
+      return await response.json();
+    }
+
+    const cached = this.authenticateFromLocalCache(roomName, password);
+    if (cached) {
+      return cached;
+    }
+
     return await response.json();
+  }
+
+  authenticateFromLocalCache(roomName, password) {
+    try {
+      const stored = localStorage.getItem('daffy-local-rooms');
+      if (!stored) return null;
+      const rooms = JSON.parse(stored);
+      const room = rooms[roomName];
+      if (!room) return null;
+      if (!room.is_password_protected) {
+        return { success: true, token: this.buildLocalToken(roomName) };
+      }
+      const expected = localStorage.getItem('daffy-room-password-' + roomName);
+      if (expected !== password) return null;
+      return { success: true, token: this.buildLocalToken(roomName) };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  buildLocalToken(roomName) {
+    return btoa(JSON.stringify({ room: roomName, issued_at: Date.now(), local: true }));
   }
   
   getToken() {

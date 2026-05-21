@@ -60,7 +60,7 @@
 
 #if defined(MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED) &&                 \
     ( !defined(MBEDTLS_CAN_ECDH) || !defined(PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_BASIC) || \
-      !defined(MBEDTLS_X509_CRT_PARSE_C) || !defined(PSA_WANT_ALG_RSA_PKCS1V15_CRYPT) || !defined(PSA_WANT_ALG_RSA_PKCS1V15_SIGN) )
+      !defined(MBEDTLS_X509_CRT_PARSE_C) || !defined(PSA_WANT_ALG_RSA_PKCS1V15_SIGN) )
 #error "MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED defined, but not all prerequisites"
 #endif
 
@@ -138,14 +138,18 @@
       defined(MBEDTLS_KEY_EXCHANGE_PSK_ENABLED) ||                          \
       defined(MBEDTLS_KEY_EXCHANGE_ECDHE_PSK_ENABLED) ||                    \
       defined(MBEDTLS_KEY_EXCHANGE_ECJPAKE_ENABLED) )
-#error "One or more versions of the TLS protocol are enabled " \
-        "but no key exchange methods defined with MBEDTLS_KEY_EXCHANGE_xxxx"
+#error "TLS 1.2 protocol is enabled but no key exchange method is defined" \
+        "with MBEDTLS_KEY_EXCHANGE_xxxx"
 #endif
 
-#if defined(MBEDTLS_SSL_PROTO_TLS1_2) && \
-    !(defined(PSA_WANT_ALG_SHA_1) || defined(PSA_WANT_ALG_SHA_256) || defined(PSA_WANT_ALG_SHA_512))
-#error "MBEDTLS_SSL_PROTO_TLS1_2 defined, but not all prerequisites"
+#if defined(MBEDTLS_SSL_PROTO_TLS1_3) &&                                    \
+    !(defined(MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_EPHEMERAL_ENABLED) ||    \
+      defined(MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_PSK_ENABLED) ||          \
+      defined(MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_PSK_EPHEMERAL_ENABLED) )
+#error "TLS 1.3 protocol is enabled but no key exchange method is defined" \
+        "with MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_xxxx"
 #endif
+
 
 #if defined(MBEDTLS_SSL_EARLY_DATA) && \
     ( !defined(MBEDTLS_SSL_SESSION_TICKETS) || \
@@ -361,6 +365,11 @@
     ( !defined(MBEDTLS_X509_CRL_PARSE_C) ) || \
     ( !defined(MBEDTLS_MD_C) ) )
 #error  "MBEDTLS_PKCS7_C is defined, but not all prerequisites"
+#endif
+
+#if defined(MBEDTLS_TIMING_C) && \
+    !(defined(MBEDTLS_HAVE_TIME) || defined(MBEDTLS_TIMING_ALT))
+#error "MBEDTLS_TIMING_C requires either MBEDTLS_HAVE_TIME or MBEDTLS_TIMING_ALT"
 #endif
 
 /* *INDENT-ON* */

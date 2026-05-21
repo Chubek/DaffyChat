@@ -1,10 +1,14 @@
 #include "daffy/rooms/room_database.hpp"
 
 #include <cctype>
+#include <cstring>
 #include <iomanip>
 #include <sstream>
 #include <unordered_map>
 
+#include "mbedtls/base64.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/entropy.h"
 #include "third_party/ZethaDB/ZethaRDB.hpp"
 #include "third_party/ZethaDB/zbase64.hpp"
 #include "third_party/sha2/sha2.h"
@@ -17,7 +21,8 @@ std::string RoomRecord::Serialize() const {
   oss << id << "|" << display_name << "|" << custom_name << "|" 
       << password_hash << "|" << creator_id << "|" << state << "|"
       << created_at << "|" << last_activity_at << "|" 
-      << (is_password_protected ? "1" : "0");
+      << (is_password_protected ? "1" : "0") << "|"
+      << (is_e2e_encrypted ? "1" : "0") << "|" << e2e_secret;
   
   // Base64 encode to handle special characters
   return zbase64::encode(oss.str());
@@ -29,6 +34,7 @@ RoomRecord RoomRecord::Deserialize(const std::string& data) {
   RoomRecord record;
   
   std::string protected_flag;
+  std::string encrypted_flag;
   std::getline(iss, record.id, '|');
   std::getline(iss, record.display_name, '|');
   std::getline(iss, record.custom_name, '|');
@@ -37,9 +43,12 @@ RoomRecord RoomRecord::Deserialize(const std::string& data) {
   std::getline(iss, record.state, '|');
   std::getline(iss, record.created_at, '|');
   std::getline(iss, record.last_activity_at, '|');
-  std::getline(iss, protected_flag);
-  
+  std::getline(iss, protected_flag, '|');
+  std::getline(iss, encrypted_flag, '|');
+  std::getline(iss, record.e2e_secret);
+
   record.is_password_protected = (protected_flag == "1");
+  record.is_e2e_encrypted = (encrypted_flag == "1");
   return record;
 }
 
@@ -53,6 +62,8 @@ Room RoomRecord::ToRoom() const {
   room.created_at = created_at;
   room.last_activity_at = last_activity_at;
   room.is_password_protected = is_password_protected;
+  room.is_e2e_encrypted = is_e2e_encrypted;
+  room.e2e_secret = e2e_secret;
   
   // Parse state
   if (state == "active") room.state = RoomState::kActive;
@@ -74,6 +85,8 @@ RoomRecord RoomRecord::FromRoom(const Room& room) {
   record.created_at = room.created_at;
   record.last_activity_at = room.last_activity_at;
   record.is_password_protected = room.is_password_protected;
+  record.is_e2e_encrypted = room.is_e2e_encrypted;
+  record.e2e_secret = room.e2e_secret;
   return record;
 }
 
@@ -274,6 +287,37 @@ bool ValidateRoomName(const std::string& name) {
   }
   
   return true;
+}
+
+std::string GenerateRoomSecret() {
+  unsigned char secret[32];
+  mbedtls_entropy_context entropy;
+  mbedtls_ctr_drbg_context ctr_drbg;
+  mbedtls_entropy_init(&entropy);
+  mbedtls_ctr_drbg_init(&ctr_drbg);
+  const char* personalization = "daffychat-room-secret";
+  if (mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                            reinterpret_cast<const unsigned char*>(personalization),
+                            std::strlen(personalization)) != 0) {
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    return {};
+  }
+  if (mbedtls_ctr_drbg_random(&ctr_drbg, secret, sizeof(secret)) != 0) {
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    return {};
+  }
+  unsigned char encoded[128];
+  std::size_t encoded_len = 0;
+  if (mbedtls_base64_encode(encoded, sizeof(encoded), &encoded_len, secret, sizeof(secret)) != 0) {
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+    return {};
+  }
+  mbedtls_ctr_drbg_free(&ctr_drbg);
+  mbedtls_entropy_free(&entropy);
+  return std::string(reinterpret_cast<char*>(encoded), encoded_len);
 }
 
 }  // namespace daffy::rooms

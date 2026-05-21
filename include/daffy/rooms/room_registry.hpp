@@ -17,7 +17,7 @@ namespace daffy::rooms {
 
 class RoomRegistry {
  public:
-  RoomRegistry(core::Logger logger, runtime::EventBus& event_bus);
+  RoomRegistry(core::Logger logger, runtime::EventBus& event_bus, bool encryption_default_enabled = true);
 
   core::Result<Room> CreateRoom(std::string display_name, std::string custom_name, 
                                 std::string password = "", std::string creator_id = "");
@@ -31,6 +31,7 @@ class RoomRegistry {
   // Authentication
   core::Result<std::string> AuthenticateRoom(const std::string& custom_name, const std::string& password);
   bool IsRoomCreator(const RoomId& room_id, const ParticipantId& participant_id) const;
+  core::Result<Room> SetRoomEncryption(const RoomId& room_id, bool enabled);
   
   std::vector<Room> List() const;
 
@@ -39,6 +40,7 @@ class RoomRegistry {
 
   core::Logger logger_;
   runtime::EventBus& event_bus_;
+  bool encryption_default_enabled_{true};
   std::unordered_map<RoomId, Room> rooms_;
   std::unique_ptr<RoomDatabase> db_;
   std::unique_ptr<RoomAuthService> auth_;

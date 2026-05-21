@@ -19,10 +19,6 @@ LOCAL_CFLAGS += $(TF_PSA_CRYPTO_LIBRARY_PRIVATE_INCLUDE)
 # on non-POSIX platforms.
 LOCAL_CFLAGS += -D_POSIX_C_SOURCE=200809L
 
-ifdef RECORD_PSA_STATUS_COVERAGE_LOG
-LOCAL_CFLAGS += -Werror -DRECORD_PSA_STATUS_COVERAGE_LOG
-endif
-
 GENERATED_MBEDTLS_CONFIG_DATA_FILES := $(patsubst tests/%,%,$(shell \
 	$(PYTHON) ../framework/scripts/generate_config_tests.py --list || \
 	echo FAILED \
@@ -45,9 +41,9 @@ GENERATED_FILES = \
 .PHONY: ssl-opt
 
 opt-testcases/handshake-generated.sh: ../framework/scripts/mbedtls_framework/tls_test_case.py
-opt-testcases/handshake-generated.sh: ../framework/scripts/generate_tls_handshake_tests.py
+opt-testcases/handshake-generated.sh: ../scripts/generate_tls_handshake_tests.py
 	echo "  Gen   $@"
-	$(PYTHON) ../framework/scripts/generate_tls_handshake_tests.py -o $@
+	$(PYTHON) ../scripts/generate_tls_handshake_tests.py -o $@
 GENERATED_FILES += opt-testcases/handshake-generated.sh
 ssl-opt: opt-testcases/handshake-generated.sh
 
@@ -110,12 +106,6 @@ include/test/test_keys.h: ../framework/scripts/generate_test_keys.py
 	$(PYTHON) ../framework/scripts/generate_test_keys.py --output $@
 
 TEST_OBJS_DEPS = $(wildcard include/test/*.h include/test/*/*.h)
-ifdef RECORD_PSA_STATUS_COVERAGE_LOG
-# Explicitly depend on this header because on a clean copy of the source tree,
-# it doesn't exist yet and must be generated as part of the build, and
-# therefore the wildcard enumeration above doesn't include it.
-TEST_OBJS_DEPS += ../framework/tests/include/test/instrument_record_status.h
-endif
 TEST_OBJS_DEPS += include/test/test_certs.h include/test/test_keys.h \
                   ../tf-psa-crypto/tests/include/test/test_keys.h
 
@@ -252,7 +242,19 @@ libtestdriver1.a:
 	cp -Rf ../scripts ./libtestdriver1
 	cp -Rf ../tf-psa-crypto/core ./libtestdriver1/tf-psa-crypto
 	cp -Rf ../tf-psa-crypto/include ./libtestdriver1/tf-psa-crypto
-	cp -Rf ../tf-psa-crypto/drivers/builtin ./libtestdriver1/tf-psa-crypto/drivers
+	cp -Rf ../tf-psa-crypto/drivers/builtin ./libtestdriver1/tf-psa-crypto/drivers/builtin
+	if [ -d ../tf-psa-crypto/dispatch ]; then \
+	    cp -Rf ../tf-psa-crypto/dispatch ./libtestdriver1/tf-psa-crypto/dispatch; \
+	fi
+	if [ -d ../tf-psa-crypto/extras ]; then \
+	    cp -Rf ../tf-psa-crypto/extras ./libtestdriver1/tf-psa-crypto/extras; \
+	fi
+	if [ -d ../tf-psa-crypto/platform ]; then \
+	    cp -Rf ../tf-psa-crypto/platform ./libtestdriver1/tf-psa-crypto/platform; \
+	fi
+	if [ -d ../tf-psa-crypto/utilities ]; then \
+	    cp -Rf ../tf-psa-crypto/utilities ./libtestdriver1/tf-psa-crypto/utilities; \
+	fi
 	cp -Rf ../tf-psa-crypto/scripts ./libtestdriver1/tf-psa-crypto
 
 	# Set the test driver base (minimal) configuration.
@@ -285,12 +287,17 @@ libtestdriver1.a:
 	perl -i ./scripts/libtestdriver1_rewrite.pl ./libtestdriver1/tf-psa-crypto/drivers/builtin/include/*/*.h
 	perl -i ./scripts/libtestdriver1_rewrite.pl ./libtestdriver1/tf-psa-crypto/drivers/builtin/include/*/*/*.h
 	perl -i ./scripts/libtestdriver1_rewrite.pl ./libtestdriver1/tf-psa-crypto/drivers/builtin/src/*.[ch]
-
+	if [ -d ../tf-psa-crypto/dispatch ]; then \
+	    perl -i ./scripts/libtestdriver1_rewrite.pl ./libtestdriver1/tf-psa-crypto/dispatch/*.[ch]; \
+	fi
+	if [ -d ../tf-psa-crypto/extras ]; then \
+	    perl -i ./scripts/libtestdriver1_rewrite.pl ./libtestdriver1/tf-psa-crypto/extras/*.[ch]; \
+	fi
+	if [ -d ../tf-psa-crypto/platform ]; then \
+	    perl -i ./scripts/libtestdriver1_rewrite.pl ./libtestdriver1/tf-psa-crypto/platform/*.[ch]; \
+	fi
+	if [ -d ../tf-psa-crypto/utilities ]; then \
+	    perl -i ./scripts/libtestdriver1_rewrite.pl ./libtestdriver1/tf-psa-crypto/utilities/*.[ch]; \
+	fi
 	$(MAKE) -C ./libtestdriver1/library CFLAGS="-I../../ $(CFLAGS)" LDFLAGS="$(LDFLAGS)" libmbedcrypto.a
 	cp ./libtestdriver1/library/libmbedcrypto.a ../library/libtestdriver1.a
-
-ifdef RECORD_PSA_STATUS_COVERAGE_LOG
-../framework/tests/include/test/instrument_record_status.h: ../tf-psa-crypto/include/psa/crypto.h Makefile
-	echo "  Gen  $@"
-	sed <../tf-psa-crypto/include/psa/crypto.h >$@ -n 's/^psa_status_t \([A-Za-z0-9_]*\)(.*/#define \1(...) RECORD_STATUS("\1", \1(__VA_ARGS__))/p'
-endif

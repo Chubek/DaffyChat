@@ -22,6 +22,8 @@ struct RoomRecord {
   std::string created_at;
   std::string last_activity_at;
   bool is_password_protected;
+  bool is_e2e_encrypted;
+  std::string e2e_secret;
   
   std::string Serialize() const;
   static RoomRecord Deserialize(const std::string& data);

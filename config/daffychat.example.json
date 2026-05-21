@@ -26,6 +26,7 @@
     "password": "",
     "credential_mode": "static"
   },
+  "encrypt": true,
   "runtime_isolation": {
     "provider": "process",
     "workspace_root": "./var/rooms",

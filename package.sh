@@ -43,6 +43,8 @@ Packaging options:
   --no-coturn             Skip vendored coturn (default)
   --with-socketio-server  Build and package Socket.IO server dependency
   --no-socketio-server    Skip Socket.IO server dependency (default)
+  --with-encrytion        Build with encryption support and force static linking
+  --with-encryption       Alias for --with-encrytion
   --with-manpages         Install manpages
   --no-manpages           Skip manpages
   --config-json           Install JSON config sample (default)
@@ -136,6 +138,7 @@ INSTALL_STDEXT="OFF"
 INSTALL_TOOLCHAIN="ON"
 INSTALL_COTURN="OFF"
 WITH_SOCKETIO_SERVER="OFF"
+WITH_ENCRYTION="OFF"
 INSTALL_MAN="ON"
 ENABLE_TESTS="ON"
 ENABLE_WERROR="OFF"
@@ -233,6 +236,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-socketio-server)
       WITH_SOCKETIO_SERVER="OFF"
+      ;;
+    --with-encrytion|--with-encryption)
+      WITH_ENCRYTION="ON"
       ;;
     --config-json)
       CONFIG_FORMAT="JSON"
@@ -345,6 +351,12 @@ case "$SCOPE" in
     CLIENT_ONLY="OFF"
     ;;
 esac
+
+if [[ "$WITH_ENCRYTION" == "ON" ]]; then
+  if [[ "$LINKING" != "STATIC" ]]; then
+    die "--with-encrytion requires static linking; remove --dynamic/--pack or pass --static"
+  fi
+fi
 
 declare -A TARGET_FLAGS=(
   [deb]=BUILD_DEB
@@ -471,6 +483,7 @@ declare -a cmake_args=(
   -DDAFFY_INSTALL_STDEXT="$INSTALL_STDEXT"
   -DDAFFY_INSTALL_COTURN="$INSTALL_COTURN"
   -DDAFFY_WITH_SOCKETIO_SERVER="$WITH_SOCKETIO_SERVER"
+  -DDAFFY_WITH_ENCRYPTION="$WITH_ENCRYTION"
   -DDAFFY_ENABLE_WERROR="$ENABLE_WERROR"
   -DDAFFY_ENABLE_TESTS="$ENABLE_TESTS"
   -DNO_INSTALL_MAN="$([[ "$INSTALL_MAN" == "ON" ]] && printf 'OFF' || printf 'ON')"
@@ -499,6 +512,7 @@ printf '  plugins:        %s\n' "$(bool_word "$INSTALL_PLUGINS")"
 printf '  stdext:         %s\n' "$(bool_word "$INSTALL_STDEXT")"
 printf '  coturn:         %s\n' "$(bool_word "$INSTALL_COTURN")"
 printf '  socketio:       %s\n' "$(bool_word "$WITH_SOCKETIO_SERVER")"
+printf '  encryption:     %s\n' "$(bool_word "$WITH_ENCRYTION")"
 printf '  toolchain:      %s\n' "$(bool_word "$INSTALL_TOOLCHAIN")"
 printf '  manpages:       %s\n' "$(bool_word "$INSTALL_MAN")"
 printf '  config format:  %s\n' "$CONFIG_FORMAT"

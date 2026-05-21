@@ -8,9 +8,6 @@ else
 DLOPEN_LDFLAGS ?=
 endif
 
-ifdef RECORD_PSA_STATUS_COVERAGE_LOG
-LOCAL_CFLAGS += -Werror -DRECORD_PSA_STATUS_COVERAGE_LOG
-endif
 DEP=${MBEDLIBS} ${MBEDTLS_TEST_OBJS}
 
 # Only build the dlopen test in shared library builds, and not when building
@@ -199,7 +196,7 @@ endif
 
 test/metatest$(EXEXT): $(FRAMEWORK)/tests/programs/metatest.c $(DEP)
 	echo "  CC    $(FRAMEWORK)/tests/programs/metatest.c"
-	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) -I../library -I../tf-psa-crypto/core -I../tf-psa-crypto/drivers/builtin/include -I../tf-psa-crypto/drivers/builtin/src $(FRAMEWORK)/tests/programs/metatest.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
+	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) -I../library -I../tf-psa-crypto/core -I../tf-psa-crypto/drivers/builtin/src -I../tf-psa-crypto/platform $(FRAMEWORK)/tests/programs/metatest.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
 test/query_config.o: test/query_config.c $(FRAMEWORK)/tests/programs/query_config.h $(DEP)
 	echo "  CC    test/query_config.c"

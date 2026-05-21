@@ -104,6 +104,7 @@ std::string DescribeAppConfig(const AppConfig& config) {
   stream << ", rooms=" << config.signaling.max_room_size << " peers max";
   stream << ", stun_servers=" << config.signaling.stun_servers.size();
   stream << ", reconnect_grace_ms=" << config.signaling.reconnect_grace_ms;
+  stream << ", encrypt=" << (config.encrypt ? "true" : "false");
   stream << ", isolation=" << config.runtime_isolation.provider;
   stream << ", services=" << config.services.ipc_url;
   stream << ", frontend_bridge=" << (config.frontend_bridge.enabled ? "enabled" : "disabled");
@@ -162,6 +163,7 @@ core::Result<AppConfig> ParseAppConfigFromJson(std::string_view json_text) {
   ReadString(*turn.value(), "username", config.turn.username);
   ReadString(*turn.value(), "password", config.turn.password);
   ReadString(*turn.value(), "credential_mode", config.turn.credential_mode);
+  ReadBool(root, "encrypt", config.encrypt);
 
   auto runtime = RequireObjectField(root, "runtime_isolation");
   if (!runtime.ok()) {
@@ -245,6 +247,7 @@ util::json::Value AppConfigToJson(const AppConfig& config) {
                               {"username", config.turn.username},
                               {"password", config.turn.password},
                               {"credential_mode", config.turn.credential_mode}}},
+      {"encrypt", config.encrypt},
       {"runtime_isolation", Value::Object{{"provider", config.runtime_isolation.provider},
                                            {"workspace_root", config.runtime_isolation.workspace_root},
                                            {"enable_lxc", config.runtime_isolation.enable_lxc},

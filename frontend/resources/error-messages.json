@@ -6,7 +6,7 @@
     "hint": "Double-check your input and try again. If the problem persists, contact support.",
     "emoji": "🤔",
     "animation": "animate__shakeX",
-    "icon": "bxs-error-circle",
+    "icon": "circle-alert",
     "color": "#f59e0b",
     "visual": "shake"
   },
@@ -17,7 +17,7 @@
     "hint": "Try logging in with your credentials, or contact an administrator if you believe you should have access.",
     "emoji": "🔒",
     "animation": "animate__headShake",
-    "icon": "bxs-lock-alt",
+    "icon": "lock",
     "color": "#ef4444",
     "visual": "lock"
   },
@@ -28,7 +28,7 @@
     "hint": "If you believe this is an error, contact your administrator to request access.",
     "emoji": "🚫",
     "animation": "animate__bounceIn",
-    "icon": "bxs-shield-x",
+    "icon": "shield-x",
     "color": "#dc2626",
     "visual": "bounce"
   },
@@ -39,7 +39,7 @@
     "hint": "Check the URL for typos, or head back to the home page to find what you're looking for.",
     "emoji": "🔍",
     "animation": "animate__fadeOut",
-    "icon": "bxs-ghost",
+    "icon": "ghost",
     "color": "#6b7280",
     "visual": "fade"
   },
@@ -50,7 +50,7 @@
     "hint": "This is usually a developer error. Check the API documentation for the correct method.",
     "emoji": "⛔",
     "animation": "animate__wobble",
-    "icon": "bxs-x-circle",
+    "icon": "x-circle",
     "color": "#f97316",
     "visual": "wobble"
   },
@@ -61,7 +61,7 @@
     "hint": "Your connection might be slow. Try refreshing the page or checking your internet connection.",
     "emoji": "⏱️",
     "animation": "animate__pulse",
-    "icon": "bxs-time",
+    "icon": "clock-3",
     "color": "#eab308",
     "visual": "pulse"
   },
@@ -72,7 +72,7 @@
     "hint": "Check if the resource already exists, or try a different approach.",
     "emoji": "⚠️",
     "animation": "animate__flash",
-    "icon": "bxs-error",
+    "icon": "triangle-alert",
     "color": "#f59e0b",
     "visual": "flash"
   },
@@ -83,7 +83,7 @@
     "hint": "Look for an updated version or alternative resource.",
     "emoji": "👋",
     "animation": "animate__fadeOutDown",
-    "icon": "bxs-trash",
+    "icon": "trash-2",
     "color": "#6b7280",
     "visual": "fadeout"
   },
@@ -94,7 +94,7 @@
     "hint": "Try reducing the size of your upload or breaking it into smaller chunks.",
     "emoji": "📦",
     "animation": "animate__bounceIn",
-    "icon": "bxs-package",
+    "icon": "package",
     "color": "#f97316",
     "visual": "bounce"
   },
@@ -105,7 +105,7 @@
     "hint": "Try using a shorter URL or send data in the request body instead of the URL.",
     "emoji": "📏",
     "animation": "animate__slideOutRight",
-    "icon": "bxs-ruler",
+    "icon": "ruler",
     "color": "#f59e0b",
     "visual": "slide"
   },
@@ -116,7 +116,7 @@
     "hint": "Check the accepted file formats and convert your data if necessary.",
     "emoji": "📄",
     "animation": "animate__shakeY",
-    "icon": "bxs-file",
+    "icon": "file",
     "color": "#f97316",
     "visual": "shake"
   },
@@ -127,7 +127,7 @@
     "hint": "This is an Easter egg from RFC 2324. Try a different endpoint, or just enjoy the joke!",
     "emoji": "🫖",
     "animation": "animate__rotateIn",
-    "icon": "bxs-coffee",
+    "icon": "coffee",
     "color": "#d4a017",
     "visual": "rotate"
   },
@@ -138,7 +138,7 @@
     "hint": "Check your input for validation errors and make sure all required fields are filled correctly.",
     "emoji": "📝",
     "animation": "animate__headShake",
-    "icon": "bxs-edit",
+    "icon": "pencil",
     "color": "#f59e0b",
     "visual": "shake"
   },
@@ -149,7 +149,7 @@
     "hint": "Wait a moment before trying again. If you're using an API, implement rate limiting in your code.",
     "emoji": "🐌",
     "animation": "animate__spin",
-    "icon": "bxs-hourglass",
+    "icon": "hourglass",
     "color": "#f59e0b",
     "visual": "spin"
   },
@@ -160,7 +160,7 @@
     "hint": "Try again in a few moments. If the problem persists, contact support with details about what you were doing.",
     "emoji": "💥",
     "animation": "animate__shakeX",
-    "icon": "bxs-error-alt",
+    "icon": "octagon-alert",
     "color": "#dc2626",
     "visual": "shake"
   },
@@ -171,7 +171,7 @@
     "hint": "This feature might be coming soon, or it might not be available on this server.",
     "emoji": "🚧",
     "animation": "animate__fadeIn",
-    "icon": "bxs-wrench",
+    "icon": "wrench",
     "color": "#6b7280",
     "visual": "fade"
   },
@@ -182,7 +182,7 @@
     "hint": "This is usually temporary. Try refreshing the page in a moment.",
     "emoji": "🌐",
     "animation": "animate__pulse",
-    "icon": "bxs-server",
+    "icon": "server",
     "color": "#ef4444",
     "visual": "pulse"
   },
@@ -193,7 +193,7 @@
     "hint": "Wait a few minutes and try again. If you're seeing this repeatedly, check the service status page.",
     "emoji": "🔧",
     "animation": "animate__bounce",
-    "icon": "bxs-cog",
+    "icon": "settings",
     "color": "#f59e0b",
     "visual": "bounce"
   },
@@ -204,7 +204,7 @@
     "hint": "The service might be slow or unresponsive. Try again in a moment.",
     "emoji": "⏰",
     "animation": "animate__pulse",
-    "icon": "bxs-time-five",
+    "icon": "clock-4",
     "color": "#f97316",
     "visual": "pulse"
   },
@@ -215,7 +215,7 @@
     "hint": "This is rare and usually indicates a client configuration issue.",
     "emoji": "🔌",
     "animation": "animate__wobble",
-    "icon": "bxs-plug",
+    "icon": "plug",
     "color": "#6b7280",
     "visual": "wobble"
   },
@@ -226,7 +226,7 @@
     "hint": "Try refreshing the page or going back to the home page. If the problem persists, contact support.",
     "emoji": "❓",
     "animation": "animate__fadeIn",
-    "icon": "bxs-error-circle",
+    "icon": "circle-alert",
     "color": "#6b7280",
     "visual": "fade"
   }

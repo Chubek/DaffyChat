@@ -313,7 +313,7 @@ int RunBackend(const std::string& config_path) {
     observed_events.push_back(event);
   });
 
-  daffy::rooms::RoomRegistry room_registry(logger, event_bus);
+  daffy::rooms::RoomRegistry room_registry(logger, event_bus, config.encrypt);
 
   auto room = room_registry.CreateRoom("bootstrap-room", "bootstrap");
   if (!room.ok()) {
@@ -355,7 +355,7 @@ int RunBackendServe(const std::string& config_path) {
   auto logger = daffy::core::CreateConsoleLogger("daffy-backend",
                                                  daffy::core::ParseLogLevel(config.server.log_level));
   daffy::runtime::InMemoryEventBus event_bus;
-  daffy::rooms::RoomRegistry room_registry(logger, event_bus);
+  daffy::rooms::RoomRegistry room_registry(logger, event_bus, config.encrypt);
   daffy::web::VoiceDiagnosticsHttpServer diagnostics_server(
       config,
       logger,

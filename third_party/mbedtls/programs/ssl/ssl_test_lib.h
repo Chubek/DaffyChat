@@ -8,6 +8,26 @@
 #ifndef MBEDTLS_PROGRAMS_SSL_SSL_TEST_LIB_H
 #define MBEDTLS_PROGRAMS_SSL_SSL_TEST_LIB_H
 
+/* On Mingw-w64, force the use of a C99-compliant printf() and friends.
+ * This is necessary on older versions of Mingw and/or Windows runtimes
+ * where snprintf does not always zero-terminate the buffer, and does
+ * not support formats such as "%zu" for size_t and "%lld" for long long.
+ */
+#if !defined(__USE_MINGW_ANSI_STDIO)
+#define __USE_MINGW_ANSI_STDIO 1
+#endif
+
+/* Tell MSVC that we're ok with using classic C functions even
+ * when an `_s` variant exist. For most functions, the improvements
+ * of the `_s` variants are of limited usefulness and not worth
+ * the portability headaches.
+ */
+#if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_DEPRECATE)
+#define _CRT_SECURE_NO_DEPRECATE 1
+#endif
+
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
+
 #include "mbedtls/private/pk_private.h"
 
 #include "mbedtls/build_info.h"

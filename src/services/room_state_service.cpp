@@ -8,6 +8,10 @@ constexpr char kServiceTopic[] = "service.roomstate";
 constexpr char kRequestType[] = "request";
 constexpr char kReplyType[] = "reply";
 
+bool IsValidRoomName(const std::string& room_name) {
+  return rooms::ValidateRoomName(room_name);
+}
+
 }  // namespace
 
 RoomStateService::RoomStateService(core::Logger logger)
@@ -89,6 +93,10 @@ core::Result<ipc::MessageEnvelope> RoomStateService::Handle(const ipc::MessageEn
     if (display_name == nullptr || !display_name->IsString() || custom_name == nullptr || !custom_name->IsString()) {
       return core::Error{core::ErrorCode::kParseError,
                          "CreateRoom requires string `display_name` and `custom_name` fields"};
+    }
+    if (!IsValidRoomName(custom_name->AsString())) {
+      return core::Error{core::ErrorCode::kInvalidArgument,
+                         "Invalid room name: must be 4-10 chars, alphanumeric and dash only"};
     }
     auto room = room_registry_.CreateRoom(display_name->AsString(), custom_name->AsString());
     if (!room.ok()) {

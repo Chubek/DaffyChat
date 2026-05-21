@@ -76,6 +76,7 @@ struct AppConfig {
   ServerConfig server{};
   SignalingConfig signaling{};
   TurnConfig turn{};
+  bool encrypt{true};
   RuntimeIsolationConfig runtime_isolation{};
   ServicesConfig services{};
   FrontendBridgeConfig frontend_bridge{};

@@ -73,6 +73,8 @@ util::json::Value RoomToJson(const Room& room) {
                                    {"display_name", room.display_name},
                                    {"custom_name", room.custom_name},
                                    {"is_password_protected", room.is_password_protected},
+                                   {"is_e2e_encrypted", room.is_e2e_encrypted},
+                                   {"e2e_secret", room.e2e_secret},
                                    {"state", ToString(room.state)},
                                    {"created_at", room.created_at},
                                    {"participants", participants},

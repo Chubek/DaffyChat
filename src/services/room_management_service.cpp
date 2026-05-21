@@ -46,6 +46,8 @@ util::json::Value RoomManagementService::HandleCreateRoom(const util::json::Valu
         {"custom_name", room.custom_name},
         {"display_name", room.display_name},
         {"is_password_protected", room.is_password_protected},
+        {"is_e2e_encrypted", room.is_e2e_encrypted},
+        {"e2e_secret", room.e2e_secret},
         {"creator_id", room.creator_id},
         {"created_at", room.created_at}
       }}
