@@ -62,26 +62,11 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/third_party/jwt-cpp/CMakeLists.txt")
   add_subdirectory(third_party/jwt-cpp EXCLUDE_FROM_ALL)
 endif()
 
-if(EXISTS "${PROJECT_SOURCE_DIR}/third_party/mbedtls/CMakeLists.txt")
-  set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
-  set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
-  set(DISABLE_PACKAGE_CONFIG_AND_INSTALL ON CACHE BOOL "" FORCE)
-  set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)
-  set(USE_SHARED_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
-  add_subdirectory(third_party/mbedtls EXCLUDE_FROM_ALL)
+if(EXISTS "${PROJECT_SOURCE_DIR}/third_party/picotls/CMakeLists.txt")
+  set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+  add_subdirectory(third_party/picotls EXCLUDE_FROM_ALL)
 endif()
 
-if(TARGET tfpsacrypto AND NOT TARGET mbedcrypto)
-  add_library(mbedcrypto ALIAS tfpsacrypto)
-endif()
-if(TARGET tfpsacrypto_static AND NOT TARGET mbedcrypto_static)
-  add_library(mbedcrypto_static ALIAS tfpsacrypto_static)
-endif()
-if(TARGET tfpsacrypto AND NOT TARGET MbedTLS::mbedcrypto)
-  add_library(MbedTLS::mbedcrypto ALIAS tfpsacrypto)
-elseif(TARGET tfpsacrypto_static AND NOT TARGET MbedTLS::mbedcrypto)
-  add_library(MbedTLS::mbedcrypto ALIAS tfpsacrypto_static)
-endif()
 
 if(DAFFY_HAVE_nng)
   set(NNG_ENABLE_TLS OFF CACHE BOOL "" FORCE)
@@ -228,16 +213,40 @@ target_include_directories(daffy_core
     "${PROJECT_SOURCE_DIR}/third_party/rnnoise/include"
     "${PROJECT_SOURCE_DIR}/third_party/ZethaDB"
     "${PROJECT_SOURCE_DIR}/third_party/sha2"
+    "${PROJECT_SOURCE_DIR}/third_party/picotls/include"
     "${PROJECT_SOURCE_DIR}/third_party/uWebSockets/src"
     "${PROJECT_SOURCE_DIR}/third_party/uWebSockets/uSockets/src")
 
 target_compile_definitions(daffy_core PRIVATE LIBUS_NO_SSL UWS_NO_ZLIB)
 
+if(LINKING STREQUAL "STATIC")
+  set(_DAFFY_SAVED_FIND_LIBRARY_SUFFIXES "${CMAKE_FIND_LIBRARY_SUFFIXES}")
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+endif()
+
 find_library(DAFFY_DATACHANNEL_LIBRARY NAMES datachannel libdatachannel REQUIRED)
 find_library(DAFFY_SRTP_LIBRARY NAMES srtp2 libsrtp2 REQUIRED)
 
+if(LINKING STREQUAL "STATIC")
+  find_library(DAFFY_JUICE_LIBRARY NAMES juice libjuice REQUIRED)
+  find_library(DAFFY_USRSCTP_LIBRARY NAMES usrsctp libusrsctp REQUIRED)
+else()
+  find_library(DAFFY_JUICE_LIBRARY NAMES juice libjuice)
+  find_library(DAFFY_USRSCTP_LIBRARY NAMES usrsctp libusrsctp)
+endif()
+
+if(LINKING STREQUAL "STATIC")
+  set(CMAKE_FIND_LIBRARY_SUFFIXES "${_DAFFY_SAVED_FIND_LIBRARY_SUFFIXES}")
+endif()
+
 target_link_libraries(daffy_core PUBLIC daffy_project_options ${CMAKE_DL_LIBS} ${DAFFY_DATACHANNEL_LIBRARY}
                                        ${DAFFY_SRTP_LIBRARY})
+if(DAFFY_JUICE_LIBRARY)
+  target_link_libraries(daffy_core PUBLIC ${DAFFY_JUICE_LIBRARY})
+endif()
+if(DAFFY_USRSCTP_LIBRARY)
+  target_link_libraries(daffy_core PUBLIC ${DAFFY_USRSCTP_LIBRARY})
+endif()
 if(TARGET nng)
   if(LINKING STREQUAL "STATIC")
     # For static linking we use whole-archive so that all nng translation
@@ -257,10 +266,8 @@ if(TARGET jwt-cpp::jwt-cpp)
 elseif(TARGET jwt-cpp)
   target_link_libraries(daffy_core PUBLIC jwt-cpp)
 endif()
-if(TARGET mbedtls)
-  target_link_libraries(daffy_core PUBLIC mbedtls mbedx509 tfpsacrypto)
-elseif(TARGET mbedtls_static)
-  target_link_libraries(daffy_core PUBLIC mbedtls_static mbedx509_static tfpsacrypto_static)
+if(TARGET picotls-minicrypto)
+  target_link_libraries(daffy_core PUBLIC picotls-minicrypto picotls-core)
 endif()
 
 add_executable(daffy-backend src/cli/backend_main.cpp)

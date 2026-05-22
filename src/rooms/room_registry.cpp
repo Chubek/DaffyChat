@@ -3,9 +3,14 @@
 #include <algorithm>
 #include <cstring>
 
-#include "mbedtls/base64.h"
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/entropy.h"
+#include "picotls/minicrypto.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "picotls/pembase64.h"
+#ifdef __cplusplus
+}
+#endif
 
 #include "daffy/core/id.hpp"
 #include "daffy/core/time.hpp"
@@ -16,33 +21,15 @@ namespace {
 
 std::string GenerateRoomSecret() {
   unsigned char secret[32];
-  mbedtls_entropy_context entropy;
-  mbedtls_ctr_drbg_context ctr_drbg;
-  mbedtls_entropy_init(&entropy);
-  mbedtls_ctr_drbg_init(&ctr_drbg);
-  const char* personalization = "daffychat-room-secret";
-  if (mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                            reinterpret_cast<const unsigned char*>(personalization),
-                            std::strlen(personalization)) != 0) {
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    mbedtls_entropy_free(&entropy);
+  ptls_minicrypto_random_bytes(secret, sizeof(secret));
+
+  const auto encoded_size = ptls_base64_howlong(sizeof(secret));
+  std::string encoded(encoded_size + 1, '\0');
+  if (ptls_base64_encode(secret, sizeof(secret), encoded.data()) != 0) {
     return {};
   }
-  if (mbedtls_ctr_drbg_random(&ctr_drbg, secret, sizeof(secret)) != 0) {
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    mbedtls_entropy_free(&entropy);
-    return {};
-  }
-  unsigned char encoded[128];
-  std::size_t encoded_len = 0;
-  if (mbedtls_base64_encode(encoded, sizeof(encoded), &encoded_len, secret, sizeof(secret)) != 0) {
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    mbedtls_entropy_free(&entropy);
-    return {};
-  }
-  mbedtls_ctr_drbg_free(&ctr_drbg);
-  mbedtls_entropy_free(&entropy);
-  return std::string(reinterpret_cast<char*>(encoded), encoded_len);
+  encoded.resize(encoded_size);
+  return encoded;
 }
 
 }  // namespace
@@ -305,7 +292,7 @@ core::Result<Room> RoomRegistry::SetRoomEncryption(const RoomId& room_id, bool e
   room_it->second.last_activity_at = core::UtcNowIso8601();
   auto status = db_->UpdateRoom(room_it->second);
   if (!status.ok()) {
-    return status;
+    return status.error();
   }
   return room_it->second;
 }
